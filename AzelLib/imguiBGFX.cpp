@@ -18,8 +18,6 @@
 //#include <../3rdparty/dear-imgui/widgets/file_list.h>
 //#include <../3rdparty/dear-imgui/widgets/gizmo.h>
 
-//#include "ImGuizmo.h"
-
 #include <imgui_internal.h>
 #include <../3rdparty/dear-imgui/widgets/dock.inl>
 //#include <../3rdparty/dear-imgui/widgets/gizmo.inl>
@@ -533,8 +531,6 @@ struct OcornutImguiContext
 #endif // USE_ENTRY
 
 		ImGui::NewFrame();
-
-		//ImGuizmo::BeginFrame();
 	}
 
 	void endFrame()

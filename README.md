@@ -8,60 +8,143 @@
 > functionality while preserving the original reverse-engineering effort.
 
 # Build
-Only Windows builds are supported right now. Install Visual Studio 2022 (or its
-Build Tools) with the x64 C++ tools and CMake 3.21 or newer.
+Only Windows x64 builds are supported right now. Install Visual Studio Build
+Tools with the x64 C++ tools and Windows SDK, CMake 4.4 or newer, and Ninja
+1.13 or newer. Visual Studio project generation is not required.
 
-* Clone the repository and its submodules recursively.
+* Clone the repository. No submodules are required.
 * Put the contents of CD1 in the `data` folder.
-* Configure and build with the checked-in presets:
+* Run the version-neutral build wrapper from a regular command prompt:
 
 ```bat
-cmake --preset vs2022-x64
-cmake --build --preset vs2022-debug
+windows-build.bat Debug
 ```
 
-Build presets are also provided for `vs2022-release`, `vs2022-shipping`,
-`vs2022-release-tracy`, and the Debug, Release, and Shipping AddressSanitizer
-configurations.
+The wrapper locates the newest supported MSVC Build Tools installation,
+configures Ninja Multi-Config, builds `PDS` and the tests, and runs CTest.
+The three core modes are `Debug`, `Release`, and `Shipping`.
 
-Alternatively, run `vs2022.bat` to generate `build_vs2022\PDS.sln`, then build
-the `PDS` project in Visual Studio. Pass `--pause` when launching the script
-from a temporary command window if you want it to wait before closing.
-`vs2026.bat` retains the equivalent optional Visual Studio 2026 generation
-path.
+- `Debug` is unoptimized and enables assertions, runtime checks, STL
+  hardening, and the debug CRT.
+- `Release` is optimized for representative testing while retaining developer
+  UI and private debug symbols.
+- `Shipping` enables interprocedural optimization and compiles out developer
+  windows, trace logging, and debug input paths.
+
+Two optional Release-based diagnostics are available:
+
+```bat
+windows-build.bat Asan
+windows-build.bat Tracy
+```
+
+`Asan` instruments first-party code for memory errors. `Tracy` enables the
+Tracy profiling client and requires the matching external profiler. Neither
+diagnostic is a distributable build.
+
+From an x64 Developer PowerShell, the equivalent preset commands are:
+
+```bat
+cmake --preset windows-msvc-x64
+cmake --build --preset windows-msvc-x64-debug
+ctest --preset windows-msvc-x64-debug
+```
+
+# Configuration and launch tool
+
+Run the Windows configuration tool from anywhere with:
+
+```bat
+configure-and-play.bat
+```
+
+The launcher does not require a separate build. It provides:
+
+- build selection for `Debug`, `Release`, and `Shipping`;
+- renderer selection for `auto`, Direct3D 12, Vulkan, Direct3D 11, and the
+  Direct3D 11/WARP software adapter;
+- window size, fullscreen, VSync, volume, and frame-limit settings;
+- keyboard remapping for every Saturn digital control;
+- gamepad remapping for face buttons, Start/Back, stick clicks, shoulders,
+  triggers, and the D-pad, plus optional left-stick directional input;
+- the existing GPU VDP1, combined dual-plane, smooth Gouraud, and direct ray
+  rendering diagnostic toggles;
+- `Save`, `Save & Launch`, and `Build & Launch` actions.
+
+Settings are stored per user at:
+
+```text
+%LOCALAPPDATA%\PanzerDragoonSaga-Recomp\settings.ini
+```
+
+The checked-in [example configuration](config/pds-settings.example.ini)
+documents the version 1 format and current defaults. The game loads the
+per-user file automatically. An alternate file can be selected with
+`--config <path>`. A command-line `--renderer` value overrides the renderer
+saved in the configuration file; other existing recording, replay, and
+capture arguments continue to work.
+
+`Save & Launch` requires an existing executable under
+`out\build\windows-msvc-x64\PDS\<Configuration>\PDS.exe`. `Build & Launch`
+runs `windows-build.bat` for the selected core configuration first. Both
+launch actions use the repository `data` directory as the working directory
+and report a clear error if `data\COMMON.DAT` is missing.
 
 # Tests
 The first-party core tests are data-independent and do not need game discs,
 SDL, bgfx, a display, or audio hardware. Build all test executables through
 the aggregate `pds_tests` target or as individual projects under the `Tests`
-solution folder. The eight CTest entries cover fixed-point and SH-2 DIV1
-behavior, replay/input recording, SCSP registers and DSP execution, VDP2
-color calculation, RBG0 coefficient addressing, frame timing, and the
-regression-capture comparison tool.
+folder. The CTest suite covers fixed-point and SH-2 DIV1 behavior,
+replay/input recording, SCSP registers and DSP execution, VDP2 color
+calculation, RBG0 coefficient addressing, frame timing, renderer and game
+configuration, the launcher schema, and the regression-capture comparison
+tool.
 
 The build presets compile both `PDS` and `pds_tests`. Matching CTest
 presets enable failure output and treat discovering zero tests as an error:
 
 ```bat
-cmake --preset vs2022-x64
-cmake --build --preset vs2022-debug
-ctest --preset vs2022-debug
+cmake --preset windows-msvc-x64
+cmake --build --preset windows-msvc-x64-debug
+ctest --preset windows-msvc-x64-debug
 ```
 
-Replace `debug` with `release`, `shipping`, `release-tracy`, or
-`release-asan` to exercise those configurations. To build only the asset-free
-tests, use:
+Replace `debug` with `release` or `shipping` to exercise the other core
+configurations. The optional diagnostic presets are
+`windows-msvc-x64-asan` and `windows-msvc-x64-tracy`. To build only the
+asset-free tests, use:
 
 ```bat
-cmake --build build_vs2022 --config Debug --parallel 4 --target pds_tests
-ctest --test-dir build_vs2022 --build-config Debug --output-on-failure --no-tests=error
+cmake --build out\build\windows-msvc-x64 --config Debug --parallel 4 --target pds_tests
+ctest --test-dir out\build\windows-msvc-x64 -C Debug --output-on-failure --no-tests=error
 ```
 
-The build presets cap parallelism at four jobs. For direct MSBuild
-invocations, also disable node reuse with `MSBUILDDISABLENODEREUSE=1` and
-`/nr:false` so interrupted builds do not leave compiler workers resident.
-AddressSanitizer configurations verify at compile time that test executables
-are instrumented and report that instrumentation when they run.
+The build presets cap parallelism at four jobs. The AddressSanitizer preset
+verifies at compile time that test executables are instrumented and reports
+that instrumentation when they run.
+
+# Renderer selection
+
+The renderer can be selected in `configure-and-play.bat`. The default `auto`
+mode requests Direct3D 12 on Windows and permits bgfx to fall back if that
+backend is unavailable. Explicit command-line selections disable backend
+fallback and take precedence over the saved setting:
+
+```bat
+PDS.exe --renderer d3d12
+PDS.exe --renderer vulkan
+PDS.exe --renderer d3d11
+PDS.exe --renderer software
+```
+
+`d3d11` remains available for diagnostics and as the host API for the
+`software` mode. On Windows, `software` selects and validates the Microsoft
+Basic Render Driver (WARP). Startup logs report the requested backend,
+selected backend, vendor, and device. Direct3D 12 uses embedded DXIL shaders,
+Vulkan uses SPIR-V, and Direct3D 11/WARP uses DXBC.
+
+Apple Silicon and Metal are a separate future effort; they are not currently
+supported build targets.
 
 # Deterministic regression captures
 
@@ -112,9 +195,9 @@ Two incompletely hardware-validated paths are deliberately default-off:
 Enable an experiment only in a separate build tree, for example:
 
 ```bat
-cmake -S . -B build_rbg0 -G "Visual Studio 17 2022" -A x64 ^
+cmake -S . -B out\build\rbg0 -G "Ninja Multi-Config" ^
   -DPDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING=ON
-cmake --build build_rbg0 --config Debug --parallel 4 --target PDS
+cmake --build out\build\rbg0 --config Debug --parallel 4 --target PDS
 ```
 
 These paths are for capture and comparison. They should not become defaults

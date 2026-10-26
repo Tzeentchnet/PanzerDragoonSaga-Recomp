@@ -37,13 +37,13 @@ independently.
 
 | Area | What it does | Current status |
 |---|---|---|
-| Build foundation | Turns the source tree and pinned dependencies into reproducible Visual Studio projects and executable/test outputs. | Complete |
+| Build foundation | Turns the source tree and pinned dependencies into reproducible Ninja build graphs and executable/test outputs. | Complete |
 | Test foundation | Runs asset-free semantic checks, sanitizers, and CI gates so regressions fail visibly. | Complete |
 | SDL | Provides the native window, keyboard/gamepad input, timing services, and host audio/device integration. | Accepted: 3.4.18 |
 | Tracy | Profiles CPU work and timing in the dedicated profiling configuration. | Accepted: 0.14.1 |
-| Dear ImGui / ImGuizmo | Implements developer/debug interfaces and interactive transformation gizmos. | Accepted: 1.92.9b / 1.10 |
+| Dear ImGui | Implements developer and debug interfaces. | Accepted: 1.92.9b |
 | GLM | Supplies host-side vector, matrix, quaternion, and camera math. | Accepted: 0.9.9.8 |
-| bgfx bundle | Compiles shaders and presents the translated Saturn renderer through the host graphics API. | Proven bundle retained |
+| bgfx bundle | Compiles shaders and presents through D3D12, Vulkan, or D3D11/WARP. | Accepted: v1.167.9590-598 wrapper |
 | Fixed-point / DIV1 | Reproduces SH-2-width arithmetic and division-step behavior consistently on the host CPU. | Complete |
 | SCSP safety / DSP | Models Saturn sound registers, DSP execution, sound RAM access, and sound-CPU timing. | Complete for identified defects |
 | VDP2 color calculation | Combines Saturn background layers with hardware-style ratios, priorities, and additive color behavior. | Complete |
@@ -56,17 +56,20 @@ independently.
 
 ### What it is
 
-The build foundation is the CMake layer, Visual Studio presets, generation
-scripts, target definitions, and dependency wiring used to produce `PDS.exe`
-and the test executables.
+The build foundation is the CMake layer, Ninja Multi-Config presets, the
+Windows bootstrap script, target definitions, and dependency wiring used to
+produce `PDS.exe` and the test executables.
 
 ### What it does
 
-- Selects Windows x64 and Visual Studio 2022 as the supported release path.
+- Selects Windows x64 and Ninja Multi-Config as the supported release path.
+- Uses the newest supported MSVC Build Tools installation as the compiler and
+  Windows SDK provider without generating Visual Studio projects.
 - Builds first-party code and exact pinned dependency revisions.
 - Generates embedded shader headers under the build directory.
-- Applies configuration-specific definitions for Debug, Release, Shipping,
-  Tracy, and AddressSanitizer builds.
+- Provides Debug, Release, and Shipping as the core configurations.
+- Exposes Tracy and AddressSanitizer as opt-in Release diagnostics in separate
+  build trees.
 - Keeps first-party compiler and linker settings from leaking into vendored
   targets.
 - Exposes exact `PDS` and `pds_tests` targets so routine builds do not compile
@@ -87,7 +90,7 @@ inputs and outputs.
 - `PDS/CMakeLists.txt`
 - `tests/CMakeLists.txt`
 - `cmake/`
-- `vs2022.bat`
+- `windows-build.bat`
 
 ## Test foundation
 
@@ -99,15 +102,16 @@ GitHub Actions gates.
 
 ### What it does
 
-- Runs eight data-independent CTest entries.
+- Runs nine data-independent CTest entries.
 - Validates fixed-point and DIV1 behavior.
 - Checks replay serialization and input transitions.
 - Exercises SCSP register bounds and DSP microprograms.
 - Exhausts VDP2 blend ratios and checks RBG0 address arithmetic.
 - Checks rational frame pacing and completion ordering.
+- Validates the renderer command-line contract.
 - Verifies regression manifests, images, and aligned audio comparisons.
 - Fails CI when no tests are discovered.
-- Provides MSVC AddressSanitizer configurations for memory defects.
+- Provides one opt-in MSVC AddressSanitizer build for memory defects.
 
 ### Why it matters
 
@@ -140,8 +144,8 @@ Saturn-facing state.
 
 ### What it is
 
-Tracy is an instrumentation profiler enabled by the `Release_Tracy`
-configuration.
+Tracy is an instrumentation profiler enabled by the optional
+`PDS_ENABLE_TRACY` setting and the `windows-msvc-x64-tracy` Release preset.
 
 ### What it does here
 
@@ -154,14 +158,13 @@ configuration.
 Tracy is not part of normal Shipping behavior and does not change Saturn
 timing semantics.
 
-## Dear ImGui and ImGuizmo
+## Dear ImGui
 
-### What they are
+### What it is
 
-Dear ImGui provides immediate-mode developer interfaces. ImGuizmo adds
-interactive translate/rotate/scale controls rendered through ImGui.
+Dear ImGui provides immediate-mode developer interfaces.
 
-### What they do here
+### What it does here
 
 - Display debug windows and internal state.
 - Host game-status, flag, field, battle, and rendering diagnostics.
@@ -204,15 +207,17 @@ of revisions.
 - Presents the final compositor output through the host Direct3D backend.
 - Renders the custom ImGui integration.
 
-### Why the existing bundle was retained
+### Current backend contract
 
-The newer candidate could configure, build shaderc, generate shaders, and
-compile `PDS.exe`. It also changed dependency acquisition, shader output
-naming, and native-window/swap-chain APIs. Compile success did not prove D3D
-startup, resize, textures, ImGui, or representative gameplay output.
+The accepted bundle generates DXIL for Direct3D 12, SPIR-V for Vulkan, and
+DXBC for Direct3D 11 and WARP. `--renderer` accepts `auto`, `d3d11`, `d3d12`,
+`vulkan`, or `software`; explicit API requests do not silently fall back.
 
-The proven bundle was therefore restored. A future update must pass runtime
-and deterministic capture gates as one lockstep migration.
+On Windows, automatic selection requests Direct3D 12. Software mode selects
+and verifies the Microsoft Basic Render Driver (`0x1414:0x008c`) through
+Direct3D 11. Startup has been validated for D3D12, Vulkan, automatic D3D12,
+and WARP. Representative gameplay and deterministic frame parity remain
+blocked until game data and a replay route are supplied.
 
 ## Fixed-point and DIV1
 

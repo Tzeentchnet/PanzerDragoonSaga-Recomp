@@ -8,11 +8,13 @@ work was therefore to make clean builds and tests trustworthy, update
 compatible dependency lines, and fix narrow Saturn behavior with explicit
 oracles.
 
-The current result is a reproducible Visual Studio 2022 build with eight
-asset-free tests, accepted SDL/Tracy/UI/math updates, hardened replay and
-capture tooling, and tested fixes in SH-2 arithmetic, SCSP, and VDP2. Two
-plausible accuracy changes remain default-off because they need game-specific
-or original-hardware evidence.
+The current result is a reproducible CMake 4.4 and Ninja Multi-Config Windows
+x64 build with nine asset-free tests, no Git submodules, explicit Direct3D 12
+and Vulkan selection, and a validated Direct3D 11 WARP fallback. Visual Studio
+Build Tools currently supplies MSVC and the Windows SDK, but Visual Studio
+projects and the IDE are not part of the build contract. Two plausible
+accuracy changes remain default-off because they need game-specific or
+original-hardware evidence.
 
 ## Build findings
 
@@ -33,8 +35,8 @@ failed or retried commands. The combined behavior looked like a loop while
 the tools were actually rebuilding overlapping graphs.
 
 The adopted policy is one build owner, exact targets, at most four workers,
-`MSBUILDDISABLENODEREUSE=1`, `/nr:false`, and no configuration matrix until a
-phase is frozen.
+and no configuration matrix until a phase is frozen. Ninja avoids the
+lingering MSBuild worker behavior entirely.
 
 ### Shader generation was not a valid build graph
 
@@ -49,41 +51,47 @@ generation now:
 
 ### The supported CMake contract was older than its dependencies
 
-The old declared CMake minimum did not describe the actual wrapper
-requirements. The project now declares CMake 3.21, uses VS 2022 presets, and
-keeps first-party options and include paths target-scoped.
+The old declared CMake minimum did not describe the actual dependency
+requirements. The project now declares CMake 4.4, uses a Ninja Multi-Config
+preset, and keeps first-party options and include paths target-scoped. The
+hand-written precompiled-header rule emitted a literal `$<CONFIG>` dependency
+under Ninja; `target_precompile_headers` replaced it.
 
 ## Dependency findings
 
 | Dependency | Decision | Finding |
 |---|---|---|
 | SDL 3.4.18 | Accepted | Same stable SDL3 line; compiled and passed project test gates. |
-| Tracy 0.14.1 | Accepted | Updated independently; Release_Tracy passed its earlier build gate. |
+| Tracy 0.14.1 | Accepted | Available through the opt-in Release profiling preset. |
 | Dear ImGui 1.92.9b | Accepted | Compatible update; 1.93 was deliberately avoided because it carries broader rendering semantics. |
-| ImGuizmo 1.10 | Accepted | Sources moved under `src/`; the build was adapted without compatibility shims. |
 | GLM 0.9.9.8 | Accepted | Latest compatible 0.9.9 line; GLM 1.x remains a separate migration. |
-| bgfx.cmake v1.167.9590-598 candidate | Rejected for now | Configured, built shaderc, generated all shaders, and compiled `PDS.exe`, but D3D startup and representative captures were unavailable. |
-| bgfx.cmake v1.139.9155-513 | Retained | Proven bundle restored and verified with a Debug `PDS.exe` build. |
+| bgfx.cmake v1.167.9590-598 | Accepted | Builds DXBC, DXIL, and SPIR-V; explicit D3D12, Vulkan, and WARP startup passed. |
 | SoLoud fork | Retained | Already carries the project-required SDL3 work; no safe benefit from changing forks. |
-| aoSDK | Retained temporarily | Immediate bounds defects were fixed, but compiled SSF components include historical restrictive licenses. |
-| emsdk | Deferred | The old inactive web path needs a full current-Emscripten migration rather than a pin-only update. |
+| aoSDK SSF subset | Retained temporarily | The tree was reduced to the active Saturn audio closure, but compiled SSF components include historical restrictive licenses. |
+| ImGuizmo | Removed | All first-party references were commented out. |
+| emsdk | Removed | The inactive web toolchain had no root build integration. |
 
 Exact revisions are recorded in `DEPENDENCIES.md`.
 
-### bgfx candidate details
+### bgfx migration details
 
-The candidate was a real migration rather than a routine pin change:
+The bgfx update was a real migration rather than a routine pin change:
 
-- nested submodules were replaced by `FetchContent`;
-- explicit bx/bimg/bgfx source overrides were needed for reproducibility;
+- nested repositories are populated by pinned `FetchContent`;
 - shader helper inclusion and shader output naming changed;
 - Direct3D bytecode moved from `dx11`/`_dx11` naming to `dxbc`/`_dxbc`; and
 - native-window state moved from `PlatformData` into the newer swap-chain API.
 
-Compile compatibility was established. Runtime compatibility was not.
-Accepting the candidate without D3D initialization, resize/fullscreen, ImGui,
-textures, and representative PDS frame comparisons would weaken the agreed
-gate, so the code and submodule were returned to the proven bundle.
+The project now embeds DXIL, SPIR-V, and DXBC variants and exposes
+`--renderer auto|d3d11|d3d12|vulkan|software`. Explicit D3D12 and Vulkan
+requests disable backend fallback. On Windows, `software` selects the
+Microsoft Basic Render Driver (`0x1414:0x008c`) through D3D11 and rejects any
+different adapter. All four primary modes initialized successfully and
+reached game-data loading.
+
+Representative resize, ImGui, VDP1/VDP2, and frame-comparison gates still
+require local game data and a deterministic replay route. That limitation is
+reported rather than treating startup as rendering parity.
 
 ## Correctness findings
 
@@ -173,21 +181,20 @@ evidence where lawful, but must not be copied into the replacement.
 
 ## Validation completed
 
-- Restored bgfx bundle: Debug `PDS.exe` builds successfully.
-- Debug CTest: 8/8 pass.
+- CMake 4.4.4, Ninja 1.13.2, and MSVC 19.44 build Debug `PDS.exe`.
+- Debug, Release, and Shipping are the core build matrix. Release-based Tracy
+  and AddressSanitizer diagnostics each pass 9/9 CTest entries.
+- A fresh online configure fetched every maintained dependency from its exact
+  pin, then built Debug `PDS.exe` and passed 9/9 tests.
+- Explicit Direct3D 12, Vulkan, and D3D11 WARP initialization passes.
+- Automatic Windows selection chooses Direct3D 12.
 - Python comparator cases: aligned audio, truncated audio, empty streams, and
   manifest mismatch all pass within the CTest entry.
-- Earlier phase gates built Debug, Release, Shipping, Release_Tracy, and
-  Release_Asan.
-- The newer bgfx candidate configured, generated shaders, and compiled PDS,
-  then was reverted because runtime gates were unavailable.
 
 ## Remaining limitations
 
 - No local game data or disc-derived captures were read or committed.
-- The newer bgfx bundle is compile-compatible but runtime-unverified.
+- Renderer startup is verified, but deterministic gameplay parity is still
+  blocked on user-supplied game data and a replay route.
 - Experimental RBG0 and NTSC cadence paths remain off by default.
-- The newest complete change set has not been repeated across the entire
-  multi-configuration matrix; that is a release-boundary task, not a reason
-  to repeat expensive builds after every small edit.
 - The historical audio-core license migration remains unfinished.

@@ -24,39 +24,27 @@ function(assign_source_group)
 endfunction(assign_source_group)
 
 
-if(MSVC)
-    ADD_MSVC_PRECOMPILED_HEADER("PDS.h" "PDS_Precompiled.cpp" SOURCES)
-endif()
-                                        
-
 set(SOURCES
  ${SOURCES}
 
- ${THIRD_PARTY}/imgui/imgui.cpp
- ${THIRD_PARTY}/imgui/imgui.h
- ${THIRD_PARTY}/imgui/imgui_draw.cpp
- ${THIRD_PARTY}/imgui/imgui_internal.h
- ${THIRD_PARTY}/imgui/imgui_tables.cpp
- ${THIRD_PARTY}/imgui/imgui_widgets.cpp
- ${THIRD_PARTY}/imgui/backends/imgui_impl_sdl3.cpp
+ ${PDS_IMGUI_SOURCE_DIR}/imgui.cpp
+ ${PDS_IMGUI_SOURCE_DIR}/imgui.h
+ ${PDS_IMGUI_SOURCE_DIR}/imgui_draw.cpp
+ ${PDS_IMGUI_SOURCE_DIR}/imgui_internal.h
+ ${PDS_IMGUI_SOURCE_DIR}/imgui_tables.cpp
+ ${PDS_IMGUI_SOURCE_DIR}/imgui_widgets.cpp
+ ${PDS_IMGUI_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
 
- ${THIRD_PARTY}/ImGuizmo/src/ImGuizmo.cpp
- ${THIRD_PARTY}/ImGuizmo/src/ImGuizmo.h
+ ${PDS_AOSDK_SOURCE_DIR}/eng_ssf/m68kcpu.c
+ ${PDS_AOSDK_SOURCE_DIR}/eng_ssf/m68kopac.c
+ ${PDS_AOSDK_SOURCE_DIR}/eng_ssf/m68kopdm.c
+ ${PDS_AOSDK_SOURCE_DIR}/eng_ssf/m68kopnz.c
+ ${PDS_AOSDK_SOURCE_DIR}/eng_ssf/m68kops.c
+ ${PDS_AOSDK_SOURCE_DIR}/eng_ssf/sat_hw.c
+ ${PDS_AOSDK_SOURCE_DIR}/eng_ssf/scsp.c
+ ${PDS_AOSDK_SOURCE_DIR}/eng_ssf/scspdsp.c
 
- ${THIRD_PARTY}/aosdk/eng_ssf/m68kcpu.c
- ${THIRD_PARTY}/aosdk/eng_ssf/m68kopac.c
- ${THIRD_PARTY}/aosdk/eng_ssf/m68kopdm.c
- ${THIRD_PARTY}/aosdk/eng_ssf/m68kopnz.c
- ${THIRD_PARTY}/aosdk/eng_ssf/m68kops.c
- ${THIRD_PARTY}/aosdk/eng_ssf/sat_hw.c
- ${THIRD_PARTY}/aosdk/eng_ssf/scsp.c
- ${THIRD_PARTY}/aosdk/eng_ssf/scspdsp.c
- #${THIRD_PARTY}/aosdk/eng_ssf/scsplfo.c
-
- "shaderc_prebuilt.cmake"
 )
-
-include(shaderc_prebuilt.cmake)
 
 set(VDP1_VERTEX_SHADERS
     shaders/VDP1_vs.sc
@@ -113,57 +101,65 @@ set(SOURCES
 
 set(AZEL_SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders/generated/$<CONFIG>")
 
+if(WIN32)
+    set(AZEL_SHADER_PROFILES s_5_0 s_6_0 spirv)
+elseif(APPLE)
+    set(AZEL_SHADER_PROFILES metal spirv)
+else()
+    set(AZEL_SHADER_PROFILES 430 spirv)
+endif()
+
 bgfx_compile_shaders(
     SHADERS ${VDP1_VERTEX_SHADERS}
     TYPE VERTEX
+    PROFILES ${AZEL_SHADER_PROFILES}
     VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP1.varying.def.sc
     OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
-    INCLUDE_DIRS ${BGFX_DIR}/src
     AS_HEADERS
     OUT_FILES_VAR VDP1_VERTEX_SHADER_HEADERS
 )
 bgfx_compile_shaders(
     SHADERS ${VDP1_FRAGMENT_SHADERS}
     TYPE FRAGMENT
+    PROFILES ${AZEL_SHADER_PROFILES}
     VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP1.varying.def.sc
     OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
-    INCLUDE_DIRS ${BGFX_DIR}/src
     AS_HEADERS
     OUT_FILES_VAR VDP1_FRAGMENT_SHADER_HEADERS
 )
 bgfx_compile_shaders(
     SHADERS ${VDP2_VERTEX_SHADERS}
     TYPE VERTEX
+    PROFILES ${AZEL_SHADER_PROFILES}
     VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP2_vs.varying.def.sc
     OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
-    INCLUDE_DIRS ${BGFX_DIR}/src
     AS_HEADERS
     OUT_FILES_VAR VDP2_VERTEX_SHADER_HEADERS
 )
 bgfx_compile_shaders(
     SHADERS ${VDP2_FRAGMENT_SHADERS}
     TYPE FRAGMENT
+    PROFILES ${AZEL_SHADER_PROFILES}
     VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP2_vs.varying.def.sc
     OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
-    INCLUDE_DIRS ${BGFX_DIR}/src
     AS_HEADERS
     OUT_FILES_VAR VDP2_FRAGMENT_SHADER_HEADERS
 )
 bgfx_compile_shaders(
     SHADERS ${VDP2_BLIT_VERTEX_SHADERS}
     TYPE VERTEX
+    PROFILES ${AZEL_SHADER_PROFILES}
     VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP2_blit.varying.def.sc
     OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
-    INCLUDE_DIRS ${BGFX_DIR}/src
     AS_HEADERS
     OUT_FILES_VAR VDP2_BLIT_VERTEX_SHADER_HEADERS
 )
 bgfx_compile_shaders(
     SHADERS ${VDP2_BLIT_FRAGMENT_SHADERS}
     TYPE FRAGMENT
+    PROFILES ${AZEL_SHADER_PROFILES}
     VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP2_blit.varying.def.sc
     OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
-    INCLUDE_DIRS ${BGFX_DIR}/src
     AS_HEADERS
     OUT_FILES_VAR VDP2_BLIT_FRAGMENT_SHADER_HEADERS
 )
@@ -203,6 +199,10 @@ set_target_properties(${AZEL_LIBRARY_TARGET} PROPERTIES
     CXX_EXTENSIONS OFF
 )
 
+target_precompile_headers(${AZEL_LIBRARY_TARGET} PRIVATE
+    "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/PDS.h>"
+)
+
 target_compile_definitions(${AZEL_LIBRARY_TARGET}
     PRIVATE
         USE_SDL
@@ -216,18 +216,17 @@ target_compile_definitions(${AZEL_LIBRARY_TARGET}
 target_include_directories(${AZEL_LIBRARY_TARGET}
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}"
-        "${THIRD_PARTY}/imgui"
-        "${THIRD_PARTY}/glm"
-        "${THIRD_PARTY}/tracy/public"
-        "${THIRD_PARTY}/bgfx.cmake/bx/include"
-        "${THIRD_PARTY}/bgfx.cmake/bx/include/compat/msvc"
+        "${PDS_IMGUI_SOURCE_DIR}"
+        "${PDS_GLM_SOURCE_DIR}"
+        "${PDS_TRACY_SOURCE_DIR}/public"
+        "${PDS_BX_SOURCE_DIR}/include"
+        "${PDS_BX_SOURCE_DIR}/include/compat/msvc"
     PRIVATE
         "${AZEL_SHADER_OUTPUT_DIR}"
-        "${THIRD_PARTY}/imgui/backends"
-        "${THIRD_PARTY}/ImGuizmo/src"
-        "${THIRD_PARTY}/bgfx.cmake/bgfx/3rdparty"
-        "${THIRD_PARTY}/bgfx.cmake/bimg/include"
-        "${THIRD_PARTY}/aosdk"
+        "${PDS_IMGUI_SOURCE_DIR}/backends"
+        "${PDS_BGFX_CORE_SOURCE_DIR}/3rdparty"
+        "${PDS_BIMG_SOURCE_DIR}/include"
+        "${PDS_AOSDK_SOURCE_DIR}"
 )
 
 if(TARGET SoLoud::SoLoud)

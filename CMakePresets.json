@@ -1,24 +1,46 @@
 {
   "version": 3,
   "cmakeMinimumRequired": {
-    "major": 3,
-    "minor": 21,
+    "major": 4,
+    "minor": 4,
     "patch": 0
   },
   "configurePresets": [
     {
-      "name": "vs2022-x64",
-      "displayName": "Visual Studio 2022 x64",
-      "generator": "Visual Studio 17 2022",
-      "architecture": "x64",
-      "binaryDir": "${sourceDir}/build_vs2022"
+      "name": "windows-msvc-x64",
+      "displayName": "Windows x64 core builds (MSVC, Ninja Multi-Config)",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/out/build/windows-msvc-x64",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Debug;Release;Shipping"
+      }
+    },
+    {
+      "name": "windows-msvc-x64-asan",
+      "displayName": "Windows x64 Release with AddressSanitizer",
+      "inherits": "windows-msvc-x64",
+      "binaryDir": "${sourceDir}/out/build/windows-msvc-x64-asan",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Release",
+        "PDS_ENABLE_ASAN": true
+      }
+    },
+    {
+      "name": "windows-msvc-x64-tracy",
+      "displayName": "Windows x64 Release with Tracy",
+      "inherits": "windows-msvc-x64",
+      "binaryDir": "${sourceDir}/out/build/windows-msvc-x64-tracy",
+      "cacheVariables": {
+        "CMAKE_CONFIGURATION_TYPES": "Release",
+        "PDS_ENABLE_TRACY": true
+      }
     }
   ],
   "buildPresets": [
     {
-      "name": "vs2022-debug",
+      "name": "windows-msvc-x64-debug",
       "displayName": "PDS - Debug",
-      "configurePreset": "vs2022-x64",
+      "configurePreset": "windows-msvc-x64",
       "configuration": "Debug",
       "jobs": 4,
       "targets": [
@@ -27,9 +49,9 @@
       ]
     },
     {
-      "name": "vs2022-release",
+      "name": "windows-msvc-x64-release",
       "displayName": "PDS - Release",
-      "configurePreset": "vs2022-x64",
+      "configurePreset": "windows-msvc-x64",
       "configuration": "Release",
       "jobs": 4,
       "targets": [
@@ -38,9 +60,9 @@
       ]
     },
     {
-      "name": "vs2022-shipping",
+      "name": "windows-msvc-x64-shipping",
       "displayName": "PDS - Shipping",
-      "configurePreset": "vs2022-x64",
+      "configurePreset": "windows-msvc-x64",
       "configuration": "Shipping",
       "jobs": 4,
       "targets": [
@@ -49,32 +71,10 @@
       ]
     },
     {
-      "name": "vs2022-release-tracy",
-      "displayName": "PDS - Release with Tracy",
-      "configurePreset": "vs2022-x64",
-      "configuration": "Release_Tracy",
-      "jobs": 4,
-      "targets": [
-        "PDS",
-        "pds_tests"
-      ]
-    },
-    {
-      "name": "vs2022-debug-asan",
-      "displayName": "PDS - Debug with AddressSanitizer",
-      "configurePreset": "vs2022-x64",
-      "configuration": "Debug_Asan",
-      "jobs": 4,
-      "targets": [
-        "PDS",
-        "pds_tests"
-      ]
-    },
-    {
-      "name": "vs2022-release-asan",
+      "name": "windows-msvc-x64-asan",
       "displayName": "PDS - Release with AddressSanitizer",
-      "configurePreset": "vs2022-x64",
-      "configuration": "Release_Asan",
+      "configurePreset": "windows-msvc-x64-asan",
+      "configuration": "Release",
       "jobs": 4,
       "targets": [
         "PDS",
@@ -82,10 +82,10 @@
       ]
     },
     {
-      "name": "vs2022-shipping-asan",
-      "displayName": "PDS - Shipping with AddressSanitizer",
-      "configurePreset": "vs2022-x64",
-      "configuration": "Shipping_Asan",
+      "name": "windows-msvc-x64-tracy",
+      "displayName": "PDS - Release with Tracy",
+      "configurePreset": "windows-msvc-x64-tracy",
+      "configuration": "Release",
       "jobs": 4,
       "targets": [
         "PDS",
@@ -95,9 +95,9 @@
   ],
   "testPresets": [
     {
-      "name": "vs2022-debug",
+      "name": "windows-msvc-x64-debug",
       "displayName": "Tests - Debug",
-      "configurePreset": "vs2022-x64",
+      "configurePreset": "windows-msvc-x64",
       "configuration": "Debug",
       "output": {
         "outputOnFailure": true
@@ -107,9 +107,9 @@
       }
     },
     {
-      "name": "vs2022-release",
+      "name": "windows-msvc-x64-release",
       "displayName": "Tests - Release",
-      "configurePreset": "vs2022-x64",
+      "configurePreset": "windows-msvc-x64",
       "configuration": "Release",
       "output": {
         "outputOnFailure": true
@@ -119,9 +119,9 @@
       }
     },
     {
-      "name": "vs2022-shipping",
+      "name": "windows-msvc-x64-shipping",
       "displayName": "Tests - Shipping",
-      "configurePreset": "vs2022-x64",
+      "configurePreset": "windows-msvc-x64",
       "configuration": "Shipping",
       "output": {
         "outputOnFailure": true
@@ -131,34 +131,10 @@
       }
     },
     {
-      "name": "vs2022-release-tracy",
-      "displayName": "Tests - Release with Tracy",
-      "configurePreset": "vs2022-x64",
-      "configuration": "Release_Tracy",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      }
-    },
-    {
-      "name": "vs2022-debug-asan",
-      "displayName": "Tests - Debug with AddressSanitizer",
-      "configurePreset": "vs2022-x64",
-      "configuration": "Debug_Asan",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      }
-    },
-    {
-      "name": "vs2022-release-asan",
+      "name": "windows-msvc-x64-asan",
       "displayName": "Tests - Release with AddressSanitizer",
-      "configurePreset": "vs2022-x64",
-      "configuration": "Release_Asan",
+      "configurePreset": "windows-msvc-x64-asan",
+      "configuration": "Release",
       "output": {
         "outputOnFailure": true
       },
@@ -167,10 +143,10 @@
       }
     },
     {
-      "name": "vs2022-shipping-asan",
-      "displayName": "Tests - Shipping with AddressSanitizer",
-      "configurePreset": "vs2022-x64",
-      "configuration": "Shipping_Asan",
+      "name": "windows-msvc-x64-tracy",
+      "displayName": "Tests - Release with Tracy",
+      "configurePreset": "windows-msvc-x64-tracy",
+      "configuration": "Release",
       "output": {
         "outputOnFailure": true
       },

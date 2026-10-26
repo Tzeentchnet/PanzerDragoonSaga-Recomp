@@ -1,5 +1,9 @@
 #include "PDS.h"
-#include "embeddedShadersMacro.h"
+
+#define BGFX_PLATFORM_SUPPORTS_ESSL 0
+#define BGFX_PLATFORM_SUPPORTS_GLSL 0
+#define BGFX_PLATFORM_SUPPORTS_WGSL 0
+#include <bgfx/embedded_shader.h>
 
 #if BGFX_PLATFORM_SUPPORTS_SPIRV
 #include "spirv/VDP1_2dUI_ps.sc.bin.h"
@@ -44,24 +48,45 @@
 #endif
 
 #if BGFX_PLATFORM_SUPPORTS_DXBC
-#include "dx11/VDP1_2dUI_ps.sc.bin.h"
-#include "dx11/VDP1_2dUI_vs.sc.bin.h"
-#include "dx11/VDP1_2dUIVertexColor_ps.sc.bin.h"
-#include "dx11/VDP1_2dUIVertexColor_vs.sc.bin.h"
-#include "dx11/VDP1_ps.sc.bin.h"
-#include "dx11/VDP1_vs.sc.bin.h"
-#include "dx11/VDP1_vertexColor_ps.sc.bin.h"
-#include "dx11/VDP1_vertexColor_vs.sc.bin.h"
-#include "dx11/VDP1_worldTextured_ps.sc.bin.h"
-#include "dx11/VDP1_worldTextured_vs.sc.bin.h"
-#include "dx11/VDP2_blit_ps.sc.bin.h"
-#include "dx11/VDP2_blit_vdp1_ps.sc.bin.h"
-#include "dx11/VDP2_composite_ps.sc.bin.h"
-#include "dx11/VDP2_blit_vs.sc.bin.h"
-#include "dx11/VDP2_ps.sc.bin.h"
-#include "dx11/VDP2_RBG0_ps.sc.bin.h"
-#include "dx11/VDP2_RBG0_dual_ps.sc.bin.h"
-#include "dx11/VDP2_vs.sc.bin.h"
+#include "dxbc/VDP1_2dUI_ps.sc.bin.h"
+#include "dxbc/VDP1_2dUI_vs.sc.bin.h"
+#include "dxbc/VDP1_2dUIVertexColor_ps.sc.bin.h"
+#include "dxbc/VDP1_2dUIVertexColor_vs.sc.bin.h"
+#include "dxbc/VDP1_ps.sc.bin.h"
+#include "dxbc/VDP1_vs.sc.bin.h"
+#include "dxbc/VDP1_vertexColor_ps.sc.bin.h"
+#include "dxbc/VDP1_vertexColor_vs.sc.bin.h"
+#include "dxbc/VDP1_worldTextured_ps.sc.bin.h"
+#include "dxbc/VDP1_worldTextured_vs.sc.bin.h"
+#include "dxbc/VDP2_blit_ps.sc.bin.h"
+#include "dxbc/VDP2_blit_vdp1_ps.sc.bin.h"
+#include "dxbc/VDP2_composite_ps.sc.bin.h"
+#include "dxbc/VDP2_blit_vs.sc.bin.h"
+#include "dxbc/VDP2_ps.sc.bin.h"
+#include "dxbc/VDP2_RBG0_ps.sc.bin.h"
+#include "dxbc/VDP2_RBG0_dual_ps.sc.bin.h"
+#include "dxbc/VDP2_vs.sc.bin.h"
+#endif
+
+#if BGFX_PLATFORM_SUPPORTS_DXIL
+#include "dxil/VDP1_2dUI_ps.sc.bin.h"
+#include "dxil/VDP1_2dUI_vs.sc.bin.h"
+#include "dxil/VDP1_2dUIVertexColor_ps.sc.bin.h"
+#include "dxil/VDP1_2dUIVertexColor_vs.sc.bin.h"
+#include "dxil/VDP1_ps.sc.bin.h"
+#include "dxil/VDP1_vs.sc.bin.h"
+#include "dxil/VDP1_vertexColor_ps.sc.bin.h"
+#include "dxil/VDP1_vertexColor_vs.sc.bin.h"
+#include "dxil/VDP1_worldTextured_ps.sc.bin.h"
+#include "dxil/VDP1_worldTextured_vs.sc.bin.h"
+#include "dxil/VDP2_blit_ps.sc.bin.h"
+#include "dxil/VDP2_blit_vdp1_ps.sc.bin.h"
+#include "dxil/VDP2_composite_ps.sc.bin.h"
+#include "dxil/VDP2_blit_vs.sc.bin.h"
+#include "dxil/VDP2_ps.sc.bin.h"
+#include "dxil/VDP2_RBG0_ps.sc.bin.h"
+#include "dxil/VDP2_RBG0_dual_ps.sc.bin.h"
+#include "dxil/VDP2_vs.sc.bin.h"
 #endif
 
 static const bgfx::EmbeddedShader s_embeddedShaders[] =

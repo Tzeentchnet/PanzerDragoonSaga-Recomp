@@ -1,5 +1,6 @@
 #include "PDS.h"
 #include "framePacing.h"
+#include "game_config.h"
 #include "inputRecorder.h"
 #include "regressionCapture.h"
 
@@ -18,13 +19,72 @@ void resetEngine();
 void readInputsFromSMPC();
 void updateInputs();
 void loopIteration();
-void azelSdl_Init();
+bool azelSdl_Init(const GameConfig& config);
 void endOfFrame();
 
 extern bool bContinue;
 
 int main(int argc, char* argv[])
 {
+    GameConfig gameConfig;
+    std::filesystem::path configPath = gameConfig_defaultPath();
+    bool configPathWasExplicit = false;
+    std::string configError;
+    if (
+        !gameConfig_parsePathOption(
+            argc,
+            argv,
+            configPath,
+            configPathWasExplicit,
+            configError
+        )
+    )
+    {
+        std::fprintf(stderr, "%s\n", configError.c_str());
+        return 2;
+    }
+
+    const GameConfigLoadResult loadResult =
+        gameConfig_load(configPath, gameConfig, configError);
+    if (loadResult == GameConfigLoadResult::Error)
+    {
+        std::fprintf(stderr, "%s\n", configError.c_str());
+        return 2;
+    }
+    if (
+        loadResult == GameConfigLoadResult::NotFound &&
+        configPathWasExplicit
+    )
+    {
+        std::fprintf(
+            stderr,
+            "configuration file not found: %s\n",
+            configPath.string().c_str()
+        );
+        return 2;
+    }
+    if (loadResult == GameConfigLoadResult::Loaded)
+    {
+        std::fprintf(
+            stderr,
+            "Configuration loaded from %s\n",
+            configPath.string().c_str()
+        );
+    }
+
+    if (
+        !rendererConfig_parse(
+            argc,
+            argv,
+            gameConfig.renderer,
+            configError
+        )
+    )
+    {
+        std::fprintf(stderr, "%s\n", configError.c_str());
+        return 2;
+    }
+
     if (!regressionCapture_configure(argc, argv))
     {
         return 2;
@@ -42,7 +102,10 @@ int main(int argc, char* argv[])
     chdir("../Resources");
 #endif
     
-    azelSdl_Init();
+    if (!azelSdl_Init(gameConfig))
+    {
+        return 2;
+    }
 
     azelInit();
 

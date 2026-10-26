@@ -23,12 +23,15 @@ set(SOURCES
     ${SRC_KERNEL}
     ${SRC_ROOT}
     ${SRC_FIELD_A3}
-    "${THIRD_PARTY}/tracy/public/TracyClient.cpp"
 )
 
-set_source_files_properties("${THIRD_PARTY}/tracy/public/TracyClient.cpp" PROPERTIES
-    CXX_STANDARD 17
-)
+if(PDS_ENABLE_TRACY)
+    list(APPEND SOURCES "${PDS_TRACY_SOURCE_DIR}/public/TracyClient.cpp")
+    set_source_files_properties(
+        "${PDS_TRACY_SOURCE_DIR}/public/TracyClient.cpp"
+        PROPERTIES CXX_STANDARD 17
+    )
+endif()
 
 source_group("src" FILES ${SRC_ROOT})
 source_group("src\\kernel" FILES ${SRC_KERNEL})
@@ -52,21 +55,20 @@ target_compile_definitions(PDS PRIVATE
 target_include_directories(PDS PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_SOURCE_DIR}/AzelLib"
-    "${THIRD_PARTY}"
-    "${THIRD_PARTY}/imgui"
-    "${THIRD_PARTY}/imgui/backends"
-    "${THIRD_PARTY}/glm"
-    "${THIRD_PARTY}/tracy/public"
+    "${PDS_IMGUI_SOURCE_DIR}"
+    "${PDS_IMGUI_SOURCE_DIR}/backends"
+    "${PDS_GLM_SOURCE_DIR}"
+    "${PDS_TRACY_SOURCE_DIR}/public"
 )
 
 if(MSVC)
     target_link_options(PDS PRIVATE
         /DEBUG
-        "$<$<CONFIG:Release,Shipping,Release_Tracy,Release_Asan,Shipping_Asan>:/OPT:REF>"
-        "$<$<CONFIG:Release,Shipping,Release_Tracy,Release_Asan,Shipping_Asan>:/OPT:ICF>"
-        "$<$<CONFIG:Release,Shipping,Release_Tracy,Release_Asan,Shipping_Asan>:/INCREMENTAL:NO>"
-        "$<$<CONFIG:Shipping>:/LTCG>"
+        "$<$<CONFIG:Release,Shipping>:/OPT:REF>"
+        "$<$<CONFIG:Release,Shipping>:/OPT:ICF>"
+        "$<$<CONFIG:Release,Shipping>:/INCREMENTAL:NO>"
     )
+    pds_copy_msvc_asan_runtime(PDS)
 endif()
 
 if(APPLE)
@@ -131,7 +133,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "iOS|tvOS")
     target_link_libraries(PDS PRIVATE
         Azel::AzelLib
         SoLoud::SoLoud
-        "${THIRD_PARTY}/SDL2/Xcode-iOS/SDL/build/Release\\\${EFFECTIVE_PLATFORM_NAME}/libSDL2.a"
+        "${PDS_SDL_SOURCE_DIR}/Xcode-iOS/SDL/build/Release\\\${EFFECTIVE_PLATFORM_NAME}/libSDL2.a"
     )
 else()
     target_link_libraries(PDS PRIVATE

@@ -16,6 +16,7 @@ vs2022_tools
 data
 build_vs2026
 vs2026_tools
+/out/
 AzelLib/shaders/generated
 captures/
 __pycache__/

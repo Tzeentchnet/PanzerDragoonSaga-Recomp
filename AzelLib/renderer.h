@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PDS.h"
+#include "game_config.h"
 
 enum bgfxViews
 {
@@ -17,7 +18,7 @@ enum bgfxViews
     CompositeView,
 };
 
-void azelSdl_Init();
+bool azelSdl_Init(const GameConfig& config);
 void azelSdl_StartFrame();
 bool azelSdl_EndFrame();
 

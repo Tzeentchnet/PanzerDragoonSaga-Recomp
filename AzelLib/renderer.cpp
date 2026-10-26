@@ -1,15 +1,14 @@
 #include "PDS.h"
 #include "framePacing.h"
+#include "game_config.h"
 #include "regressionCapture.h"
 #include <soloud.h>
 
 #include <backends/imgui_impl_sdl3.h>
 
 #include "renderer/renderer.h"
-#include "renderer/renderer_gl.h"
-#include "renderer/renderer_vk.h"
+#include "renderer/renderer_bgfx.h"
 
-//#include "../ThirdParty/bgfx.cmake/bgfx/examples/common/imgui/imgui.h"
 #include "imguiBGFX.h"
 #include "items.h"
 #include "renderer_vdp2.h"
@@ -34,6 +33,9 @@ float gVolume = 1.f;
 bool useVDP1GL = true;
 bool useCombinedDualPlane = true;
 bool debugFlatPlaneA = false;
+
+extern bool gSmoothGouraud;
+extern bool gDirectRayRendering;
 
 SoLoud::Soloud gSoloud; // Engine core
 
@@ -61,6 +63,63 @@ int frameLimit = 30;
 #endif
 #endif
 
+namespace
+{
+std::array<SDL_Scancode, saturnControl_count()> gKeyboardBindings = {};
+std::array<SaturnControl, gamepadInput_count()> gGamepadBindings = {};
+bool gLeftStickDirections = true;
+std::uint32_t gBgfxResetFlags = BGFX_RESET_NONE;
+
+bool applyGameConfig(const GameConfig& config)
+{
+    for (std::size_t i = 1; i < saturnControl_count(); ++i)
+    {
+        const std::string& keyName = config.keyboard.bindings[i];
+        if (keyName == "None")
+        {
+            gKeyboardBindings[i] = SDL_SCANCODE_UNKNOWN;
+            continue;
+        }
+
+        const SDL_Scancode scancode =
+            SDL_GetScancodeFromName(keyName.c_str());
+        if (scancode == SDL_SCANCODE_UNKNOWN)
+        {
+            std::fprintf(
+                stderr,
+                "Unsupported keyboard key '%s' for Saturn control '%s'\n",
+                keyName.c_str(),
+                saturnControl_name(static_cast<SaturnControl>(i))
+            );
+            return false;
+        }
+        gKeyboardBindings[i] = scancode;
+    }
+
+    gGamepadBindings = config.gamepad.bindings;
+    gLeftStickDirections = config.gamepad.leftStickDirections;
+    gVolume = static_cast<float>(config.audioPacing.volumePercent) / 100.0f;
+    frameLimit =
+        config.audioPacing.frameLimit == 0
+            ? -1
+            : config.audioPacing.frameLimit;
+    useVDP1GL = config.experimental.gpuVdp1;
+    useCombinedDualPlane = config.experimental.combinedDualPlane;
+    gSmoothGouraud = config.experimental.smoothGouraud;
+    gDirectRayRendering = config.experimental.directRayRendering;
+    gBgfxResetFlags =
+        config.display.vsync ? BGFX_RESET_VSYNC : BGFX_RESET_NONE;
+    return true;
+}
+
+std::uint16_t gamepadBindingMask(GamepadInput input)
+{
+    return saturnControl_mask(
+        gGamepadBindings[static_cast<std::size_t>(input)]
+    );
+}
+}
+
 enum eLayers {
     SPRITE_POLY,
     SPRITE_SOFTWARE,
@@ -75,16 +134,18 @@ enum eLayers {
 
 backend* gBackend = nullptr;
 
-void azelSdl_Init()
+bool azelSdl_Init(const GameConfig& config)
 {
-#ifdef WITH_VK
-    //gBackend = SDL_VK_backend::create();
-    //if (gBackend == nullptr)
-#endif
+    if (!applyGameConfig(config))
     {
-        gBackend = SDL_ES3_backend::create();
+        return false;
     }
 
+    gBackend = SDL_BGFX_backend::create(config);
+    if (gBackend == nullptr)
+    {
+        return false;
+    }
 
     for (int i = 0; i < NBG_data.size(); i++)
     {
@@ -103,6 +164,8 @@ void azelSdl_Init()
 #ifndef SHIPPING_BUILD
     SDL_GL_SetSwapInterval(0);
 #endif
+
+    return true;
 }
 
 bgfx::TextureHandle getTextureForLayerBgfx(eLayers layerIndex)
@@ -266,12 +329,30 @@ void azelSdl_StartFrame()
 #if defined(TARGET_OS_IOS) || defined(TARGET_OS_TV)
     SDL_Metal_GetDrawableSize(gWindowBGFX, &outputResolution[0], &outputResolution[1]);
 #else
-    SDL_GetWindowSize(gWindowBGFX, &outputResolution[0], &outputResolution[1]);
+    if (
+        !SDL_GetWindowSizeInPixels(
+            gWindowBGFX,
+            &outputResolution[0],
+            &outputResolution[1]
+        )
+    )
+    {
+        std::fprintf(
+            stderr,
+            "SDL could not determine the window pixel size: %s\n",
+            SDL_GetError()
+        );
+        closeApp = true;
+        return;
+    }
 #endif
 
     if ((oldResolution[0] != outputResolution[0]) || (oldResolution[1] != outputResolution[1]))
     {
-        bgfx::reset(outputResolution[0], outputResolution[1]);
+        bgfx::SwapChain swapChain;
+        swapChain.width = outputResolution[0];
+        swapChain.height = outputResolution[1];
+        bgfx::reset(gBgfxResetFlags, &swapChain);
 
         if (bgfx::isValid(gBGFXVdp1PolyFB))
         {
@@ -414,42 +495,65 @@ void azelSdl_StartFrame()
     bool gamepadHasInput = false;
     if (controller)
     {
-        // Saturn button mapping:
-        // 0x0001=A, 0x0002=B, 0x0004=C, 0x0008=Start
-        // 0x0010=Up, 0x0020=Down, 0x0040=Left, 0x0080=Right
-        // 0x0800=X, 0x1000=R, 0x4000=Y, 0x8000=L
-        u16 buttonMask = 0;
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_SOUTH) ? 0x0001 : 0; // A
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_EAST) ? 0x0002 : 0;  // B
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_NORTH) ? 0x0004 : 0; // C
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_WEST) ? 0x0800 : 0;  // X
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_START) ? 0x0008 : 0; // Start
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER) ? 0x8000 : 0;  // L
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER) ? 0x1000 : 0; // R
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_DPAD_UP) ? 0x0010 : 0;
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_DPAD_DOWN) ? 0x0020 : 0;
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_DPAD_LEFT) ? 0x0040 : 0;
-        buttonMask |= SDL_GetGamepadButton(controller, SDL_GAMEPAD_BUTTON_DPAD_RIGHT) ? 0x0080 : 0;
+        struct GamepadButtonBinding
+        {
+            GamepadInput input;
+            SDL_GamepadButton button;
+        };
+        constexpr GamepadButtonBinding buttonBindings[] = {
+            {GamepadInput::South, SDL_GAMEPAD_BUTTON_SOUTH},
+            {GamepadInput::East, SDL_GAMEPAD_BUTTON_EAST},
+            {GamepadInput::West, SDL_GAMEPAD_BUTTON_WEST},
+            {GamepadInput::North, SDL_GAMEPAD_BUTTON_NORTH},
+            {GamepadInput::Back, SDL_GAMEPAD_BUTTON_BACK},
+            {GamepadInput::Start, SDL_GAMEPAD_BUTTON_START},
+            {GamepadInput::LeftStick, SDL_GAMEPAD_BUTTON_LEFT_STICK},
+            {GamepadInput::RightStick, SDL_GAMEPAD_BUTTON_RIGHT_STICK},
+            {
+                GamepadInput::LeftShoulder,
+                SDL_GAMEPAD_BUTTON_LEFT_SHOULDER
+            },
+            {
+                GamepadInput::RightShoulder,
+                SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER
+            },
+            {GamepadInput::DpadUp, SDL_GAMEPAD_BUTTON_DPAD_UP},
+            {GamepadInput::DpadDown, SDL_GAMEPAD_BUTTON_DPAD_DOWN},
+            {GamepadInput::DpadLeft, SDL_GAMEPAD_BUTTON_DPAD_LEFT},
+            {GamepadInput::DpadRight, SDL_GAMEPAD_BUTTON_DPAD_RIGHT},
+        };
 
-        // L/R triggers as digital buttons (threshold > 8000)
+        u16 buttonMask = 0;
+        for (const GamepadButtonBinding& binding : buttonBindings)
+        {
+            if (SDL_GetGamepadButton(controller, binding.button))
+            {
+                buttonMask |= gamepadBindingMask(binding.input);
+            }
+        }
+
         s16 leftTrigger = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
         s16 rightTrigger = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
         if (leftTrigger > 8000)
-            buttonMask |= 0x8000; // L
+            buttonMask |= gamepadBindingMask(GamepadInput::LeftTrigger);
         if (rightTrigger > 8000)
-            buttonMask |= 0x1000; // R
+            buttonMask |= gamepadBindingMask(GamepadInput::RightTrigger);
 
-        // Analog sticks
         s16 stickX = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_LEFTX);
         s16 stickY = SDL_GetGamepadAxis(controller, SDL_GAMEPAD_AXIS_LEFTY);
 
-        // Analog stick → d-pad for menu navigation
-        if (stickY < -16000) buttonMask |= 0x0010; // Up
-        if (stickY > 16000)  buttonMask |= 0x0020; // Down
-        if (stickX < -16000) buttonMask |= 0x0040; // Left
-        if (stickX > 16000)  buttonMask |= 0x0080; // Right
+        if (gLeftStickDirections)
+        {
+            if (stickY < -16000)
+                buttonMask |= saturnControl_mask(SaturnControl::Up);
+            if (stickY > 16000)
+                buttonMask |= saturnControl_mask(SaturnControl::Down);
+            if (stickX < -16000)
+                buttonMask |= saturnControl_mask(SaturnControl::Left);
+            if (stickX > 16000)
+                buttonMask |= saturnControl_mask(SaturnControl::Right);
+        }
 
-        // Detect gamepad activity: any button, stick movement past deadzone, or trigger
         bool stickActive = (stickX < -4000 || stickX > 4000 || stickY < -4000 || stickY > 4000);
         bool triggerActive = (leftTrigger > 4000 || rightTrigger > 4000);
         gamepadHasInput = (buttonMask != 0 || stickActive || triggerActive);
@@ -462,7 +566,6 @@ void azelSdl_StartFrame()
         pending.m2_analogX = convertAxis(stickX);
         pending.m3_analogY = convertAxis(stickY);
 
-        // Analog triggers → m4 (L trigger) / m5 (R trigger), range 0-255
         pending.m4 = (s8)(leftTrigger >> 7);
         pending.m5 = (s8)(rightTrigger >> 7);
     }
@@ -472,33 +575,19 @@ void azelSdl_StartFrame()
         const bool* keyState = SDL_GetKeyboardState(NULL);
         bool keyboardHasInput = false;
 
-        for (int i = 0; i < SDL_SCANCODE_COUNT; i++)
+        for (std::size_t i = 1; i < saturnControl_count(); ++i)
         {
-            if (keyState[i])
+            const SDL_Scancode scancode = gKeyboardBindings[i];
+            if (
+                scancode != SDL_SCANCODE_UNKNOWN &&
+                keyState[static_cast<std::size_t>(scancode)]
+            )
             {
-                u16 buttonMask = 0;
-                switch (i)
-                {
-                case SDL_SCANCODE_RETURN:  buttonMask = 0x0008; break; // Start
-                case SDL_SCANCODE_Z:       buttonMask = 0x0004; break; // C
-                case SDL_SCANCODE_X:       buttonMask = 0x0002; break; // B
-                case SDL_SCANCODE_C:       buttonMask = 0x0001; break; // A
-                case SDL_SCANCODE_A:       buttonMask = 0x0800; break; // X
-                case SDL_SCANCODE_S:       buttonMask = 0x4000; break; // Y
-                case SDL_SCANCODE_Q:       buttonMask = 0x8000; break; // L
-                case SDL_SCANCODE_W:       buttonMask = 0x1000; break; // R
-                case SDL_SCANCODE_UP:      buttonMask = 0x0010; break;
-                case SDL_SCANCODE_DOWN:    buttonMask = 0x0020; break;
-                case SDL_SCANCODE_LEFT:    buttonMask = 0x0040; break;
-                case SDL_SCANCODE_RIGHT:   buttonMask = 0x0080; break;
-                default: break;
-                }
-
-                if (buttonMask)
-                {
-                    setButtons(buttonMask);
-                    keyboardHasInput = true;
-                }
+                const u16 buttonMask = saturnControl_mask(
+                    static_cast<SaturnControl>(i)
+                );
+                setButtons(buttonMask);
+                keyboardHasInput = true;
             }
         }
 
