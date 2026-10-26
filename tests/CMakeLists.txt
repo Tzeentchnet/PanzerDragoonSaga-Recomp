@@ -188,4 +188,20 @@ if(Python3_Interpreter_FOUND)
     set_tests_properties(pds.tools.compare_regression PROPERTIES
         LABELS "tools;unit"
     )
+
+    if(WIN32 AND PDS_POWERSHELL_EXECUTABLE)
+        add_test(
+            NAME pds.tools.game_data_preparation
+            COMMAND
+                "${Python3_EXECUTABLE}"
+                "${CMAKE_CURRENT_SOURCE_DIR}/game_data_preparation_tests.py"
+                --powershell
+                "${PDS_POWERSHELL_EXECUTABLE}"
+                --script
+                "${PROJECT_SOURCE_DIR}/tools/prepare-game-data.ps1"
+        )
+        set_tests_properties(pds.tools.game_data_preparation PROPERTIES
+            LABELS "tools;unit;data"
+        )
+    endif()
 endif()

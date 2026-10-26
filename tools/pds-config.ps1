@@ -828,19 +828,32 @@ function Start-ConfiguredGame {
     }
 
     $dataDirectory = Join-Path $script:RepositoryRoot 'data'
-    $commonData = Join-Path $dataDirectory 'COMMON.DAT'
+    $preparationScript = Join-Path $PSScriptRoot 'prepare-game-data.ps1'
+    if (-not (Test-Path -LiteralPath $preparationScript -PathType Leaf)) {
+        throw "Game data preparation tool not found: $preparationScript"
+    }
+
+    $statusLabel.Text = 'Preparing game data...'
+    [Windows.Forms.Application]::DoEvents()
+    $preparedDataDirectory = & $preparationScript `
+        -DataDirectory $dataDirectory
+    if ($preparedDataDirectory -is [array]) {
+        throw 'Game data preparation returned more than one data directory.'
+    }
+    $preparedDataDirectory = [string]$preparedDataDirectory
+
+    $commonData = Join-Path $preparedDataDirectory 'COMMON.DAT'
     if (-not (Test-Path -LiteralPath $commonData -PathType Leaf)) {
         throw (
-            "Game data was not found.`n`n" +
-            "Expected: $commonData`n`n" +
-            'Extract the CD1 contents into the repository data directory.'
+            "Prepared game data is incomplete.`n`n" +
+            "Expected: $commonData"
         )
     }
 
     [void](Start-Process `
         -FilePath $executable `
         -ArgumentList @('--config', "`"$($script:ConfigPath)`"") `
-        -WorkingDirectory $dataDirectory)
+        -WorkingDirectory $preparedDataDirectory)
     $statusLabel.Text = "Launched $build."
 }
 

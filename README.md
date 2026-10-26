@@ -13,7 +13,11 @@ Tools with the x64 C++ tools and Windows SDK, CMake 4.4 or newer, and Ninja
 1.13 or newer. Visual Studio project generation is not required.
 
 * Clone the repository. No submodules are required.
-* Put the contents of CD1 in the `data` folder.
+* Put CD1 game data in the `data` folder. The launcher accepts:
+  * the extracted CD1 files;
+  * a BIN/CUE pair;
+  * a cooked or raw `.iso` image; or
+  * a `.zip` or `.rar` archive containing any of the above.
 * Run the version-neutral build wrapper from a regular command prompt:
 
 ```bat
@@ -61,6 +65,8 @@ configure-and-play.bat
 The launcher does not require a separate build. It provides:
 
 - build selection for `Debug`, `Release`, and `Shipping`;
+- automatic CD1 discovery and preparation from loose files, BIN/CUE, ISO,
+  ZIP, or RAR data;
 - renderer selection for `auto`, Direct3D 12, Vulkan, Direct3D 11, and the
   Direct3D 11/WARP software adapter;
 - window size, fullscreen, VSync, volume, and frame-limit settings;
@@ -86,9 +92,22 @@ capture arguments continue to work.
 
 `Save & Launch` requires an existing executable under
 `out\build\windows-msvc-x64\PDS\<Configuration>\PDS.exe`. `Build & Launch`
-runs `windows-build.bat` for the selected core configuration first. Both
-launch actions use the repository `data` directory as the working directory
-and report a clear error if `data\COMMON.DAT` is missing.
+runs `windows-build.bat` for the selected core configuration first.
+
+Before launch, the tool looks for extracted `COMMON.DAT` data or a CD1 source.
+Names containing `Disc 1`, `Disk 1`, or `CD1` are preferred when several
+disc sources exist. Windows `tar.exe` reads ZIP and RAR containers; encrypted
+or damaged archives fail with the underlying extraction error. BIN/CUE
+metadata is honored, including raw 2352-byte MODE1 and MODE2 sectors. If a
+CUE references a missing `.iso` while a same-named `.bin` exists, the matching
+BIN is used.
+
+Prepared files are cached under `data\.prepared` using the source file's
+metadata, so the original image or archive is never modified and later
+launches do not extract it again. The first archive launch can take a few
+minutes and needs temporary space for the archived image plus the extracted
+CD1 files. The preparation layer validates archive paths, ISO9660 extents,
+and output names before writing files.
 
 # Tests
 The first-party core tests are data-independent and do not need game discs,
@@ -97,8 +116,8 @@ the aggregate `pds_tests` target or as individual projects under the `Tests`
 folder. The CTest suite covers fixed-point and SH-2 DIV1 behavior,
 replay/input recording, SCSP registers and DSP execution, VDP2 color
 calculation, RBG0 coefficient addressing, frame timing, renderer and game
-configuration, the launcher schema, and the regression-capture comparison
-tool.
+configuration, the launcher schema, game-data preparation, and the
+regression-capture comparison tool.
 
 The build presets compile both `PDS` and `pds_tests`. Matching CTest
 presets enable failure output and treat discovering zero tests as an error:

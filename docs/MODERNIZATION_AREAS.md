@@ -15,6 +15,8 @@ SDL input -> translated PDS input/SMPC state -> game logic
                                                 |
                                                 +-> SCSP/DSP state -> SoLoud -> SDL audio
 
+loose files / BIN-CUE / ISO / ZIP-RAR -> validated CD1 cache -> game file reads
+
 Replay and regression capture observe input, game state, video, and audio.
 CMake, presets, tests, sanitizers, and CI build and validate every path.
 ```
@@ -39,6 +41,7 @@ independently.
 |---|---|---|
 | Build foundation | Turns the source tree and pinned dependencies into reproducible Ninja build graphs and executable/test outputs. | Complete |
 | Test foundation | Runs asset-free semantic checks, sanitizers, and CI gates so regressions fail visibly. | Complete |
+| Game data preparation | Normalizes supported CD1 files, disc images, and archives into a validated cache without modifying user-owned sources. | Complete |
 | SDL | Provides the native window, keyboard/gamepad input, timing services, and host audio/device integration. | Accepted: 3.4.18 |
 | Tracy | Profiles CPU work and timing in the dedicated profiling configuration. | Accepted: 0.14.1 |
 | Dear ImGui | Implements developer and debug interfaces. | Accepted: 1.92.9b |
@@ -102,7 +105,7 @@ GitHub Actions gates.
 
 ### What it does
 
-- Runs nine data-independent CTest entries.
+- Runs data-independent native and tool-focused CTest entries.
 - Validates fixed-point and DIV1 behavior.
 - Checks replay serialization and input transitions.
 - Exercises SCSP register bounds and DSP microprograms.
@@ -118,6 +121,47 @@ GitHub Actions gates.
 Most Saturn accuracy bugs are bit- or ordering-sensitive. Fast, asset-free
 tests let developers verify those rules without launching the game or
 depending on a particular host refresh rate.
+
+## Game data preparation
+
+### What it is
+
+The game data preparation layer is the Windows launcher path that converts
+user-owned CD1 data into the flat directory layout expected by the existing
+relative file reads.
+
+### What it does
+
+- Uses already-extracted files immediately when `COMMON.DAT` is present.
+- Discovers BIN/CUE pairs and cooked or raw ISO images.
+- Opens ZIP and RAR containers with the Windows `tar.exe`/libarchive tool.
+- Reads MODE1 and MODE2 CUE layouts and tolerates a same-named BIN when older
+  CUE metadata incorrectly names an ISO.
+- Extracts bounded ISO9660 files directly from 2048-, 2336-, or 2352-byte
+  sectors.
+- Rejects archive traversal, links, unsafe ISO names, invalid extents,
+  directory cycles, interleaved files, and unsupported multi-extent files.
+- Prefers sources named as Disc 1, Disk 1, or CD1 when all four game discs are
+  present.
+- Caches successful output by source metadata under `data\.prepared`, leaving
+  the archive or image unchanged.
+- Tests loose data, cooked ISO, raw BIN/CUE, ZIP wrapping, cache reuse, CUE
+  filename recovery, and traversal rejection without using game assets.
+
+### Why it matters
+
+The runtime historically assumed that every CD1 file had already been copied
+into the working directory. Normalizing common archival formats at launch
+keeps that stable runtime contract while removing a manual extraction step.
+Validation and an atomic cache prevent partial or unsafe input from appearing
+as usable game data.
+
+### Main touchpoints
+
+- `tools/prepare-game-data.ps1`
+- `tools/pds-config.ps1`
+- `tests/game_data_preparation_tests.py`
+- `tests/CMakeLists.txt`
 
 ## SDL
 
