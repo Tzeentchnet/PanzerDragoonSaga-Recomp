@@ -1,4 +1,6 @@
 #include "SCSP_wavStream.h"
+#include "SCSPTiming.h"
+#include "regressionCapture.h"
 #include <algorithm>
 
 extern "C" {
@@ -30,8 +32,9 @@ unsigned int SCSPStreamInstance::getAudio(float* aBuffer, unsigned int aSamplesT
     for (int i=0; i<aSamplesToRead; i++)
     {
         stereo_sample_t sample;
-        m68k_execute((11300000 / 60) / 735);
+        m68k_execute(kScspM68kCyclesPerSample);
         SCSP_Update(NULL, NULL, &sample);
+        regressionCapture_appendAudioSample(sample.l, sample.r);
 
         aBuffer[i] = sample.l / (float)0x8000;
         aBuffer[aBufferSize + i] = sample.r / (float)0x8000;

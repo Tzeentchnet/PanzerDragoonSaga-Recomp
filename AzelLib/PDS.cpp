@@ -1,6 +1,8 @@
 #include "PDS.h"
+#include "frameCompletion.h"
 #include "debugWindows.h"
 #include "inputRecorder.h"
+#include "regressionCapture.h"
 #include "kernel/fileBundle.h"
 #include "kernel/debug/trace.h"
 #include "audio/soundDriver.h"
@@ -1030,23 +1032,23 @@ void interrupt_VBlankIn()
     vblankData.m18++;
     vblankData.m10_numVsyncSinceLastPresent++;
 
-    if ((vblankData.m14_numVsyncPerFrame <= vblankData.m10_numVsyncSinceLastPresent) && (vblankData.m0_frameReadyToPresent == 1))
+    if (
+        pds::timing::shouldPresentFrame(
+            vblankData.m0_frameReadyToPresent == 1,
+            vblankData.m10_numVsyncSinceLastPresent,
+            vblankData.m14_numVsyncPerFrame,
+            graphicEngineStatus.m3 == 0,
+            vblankData.m18
+        )
+    )
     {
-        if ((graphicEngineStatus.m3 == 0) || ((/*(VDP1_EDSR & 2) != 0 ||*/ (3 < vblankData.m18))))
-        {
-            vblankData.m0_frameReadyToPresent = 0;
-            vblankData.m10_numVsyncSinceLastPresent = 0;
-            vblankData.mC_numFramesPresented++;
+        vblankData.m0_frameReadyToPresent = 0;
+        vblankData.m10_numVsyncSinceLastPresent = 0;
+        vblankData.mC_numFramesPresented++;
 
-            interruptVDP2Update();
-            setupVdp1LocalCoordinatesAndClipping();
-            interruptVDP1Update();
-        }
-        else
-        {
-            // Frame was missed!
-            //assert(0);
-        }
+        interruptVDP2Update();
+        setupVdp1LocalCoordinatesAndClipping();
+        interruptVDP1Update();
     }
 
     updateFadeInterrupt();
@@ -1183,6 +1185,11 @@ void loopIteration()
     bContinue = azelSdl_EndFrame();
 
     updateSoundInterrupt();
+    regressionCapture_recordFrame(frameIndex);
+    if (regressionCapture_hasFailed())
+    {
+        bContinue = false;
+    }
 
     frameIndex++;
 }
@@ -1275,4 +1282,3 @@ sSaturnMemoryFile::sSaturnMemoryFile(const char* fileName, u32 base)
     m_dataSize = fileSize;
     m_base = base;
 }
-

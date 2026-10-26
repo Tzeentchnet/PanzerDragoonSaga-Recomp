@@ -1,109 +1,159 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.21)
 
-IF(${CMAKE_SYSTEM_NAME} MATCHES iOS)
-	project(PDS-ios)
-ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES tvOS)
-	project(PDS-tvos)
-ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES Darwin)
-	project(PDS-Darwin)
-ELSE()
-	project(PDS)
-ENDIF()
+cmake_policy(SET CMP0091 NEW)
 
-MACRO(ADD_MSVC_PRECOMPILED_HEADER PrecompiledHeader PrecompiledSource SourcesVar)
-  IF(MSVC)
-    GET_FILENAME_COMPONENT(PrecompiledBasename ${PrecompiledHeader} NAME_WE)
-    SET(PrecompiledBinary "${CMAKE_CURRENT_BINARY_DIR}/${PrecompiledBasename}.pch")
-    SET(Sources ${${SourcesVar}})
-
-    SET_SOURCE_FILES_PROPERTIES(${PrecompiledSource}
-                                PROPERTIES COMPILE_FLAGS "/Yc\"${PrecompiledHeader}\" /Fp\"${PrecompiledBinary}\""
-                                           OBJECT_OUTPUTS "${PrecompiledBinary}")
-    SET_SOURCE_FILES_PROPERTIES(${Sources}
-                                PROPERTIES COMPILE_FLAGS "/Yu\"${PrecompiledHeader}\" /FI\"${PrecompiledHeader}\" /Fp\"${PrecompiledBinary}\""
-                                           OBJECT_DEPENDS "${PrecompiledBinary}")
-    # Add precompiled header to SourcesVar
-    LIST(APPEND ${SourcesVar} ${PrecompiledSource})
-  ENDIF(MSVC)
-ENDMACRO(ADD_MSVC_PRECOMPILED_HEADER)
-
-MACRO(COPY_BUILD_CONFIG SourceConfigName DestConfigName)
-if(CMAKE_CONFIGURATION_TYPES)
-	list(APPEND CMAKE_CONFIGURATION_TYPES ${DestConfigName})
-	string(TOUPPER ${SourceConfigName} SOURCE_UPCASE)
-	string(TOUPPER ${DestConfigName} DEST_UPCASE)
-
-	set(CMAKE_SHARED_LINKER_FLAGS_${DEST_UPCASE} ${CMAKE_SHARED_LINKER_FLAGS_${SOURCE_UPCASE}})
-	set(CMAKE_EXE_LINKER_FLAGS_${DEST_UPCASE} ${CMAKE_EXE_LINKER_FLAGS_${SOURCE_UPCASE}})
-	set(CMAKE_C_FLAGS_${DEST_UPCASE} ${CMAKE_C_FLAGS_${SOURCE_UPCASE}})
-	set(CMAKE_CXX_FLAGS_${DEST_UPCASE} ${CMAKE_CXX_FLAGS_${SOURCE_UPCASE}})
+if(CMAKE_SYSTEM_NAME MATCHES iOS)
+    project(PDS-ios)
+elseif(CMAKE_SYSTEM_NAME MATCHES tvOS)
+    project(PDS-tvos)
+elseif(CMAKE_SYSTEM_NAME MATCHES Darwin)
+    project(PDS-Darwin)
 else()
-	message("  XXX custom build types are not allowed...")
+    project(PDS)
 endif()
-ENDMACRO(COPY_BUILD_CONFIG)
 
-IF(MSVC)
-   if(CMAKE_CONFIGURATION_TYPES)
-      list(REMOVE_ITEM CMAKE_CONFIGURATION_TYPES MinSizeRel)
-      list(REMOVE_ITEM CMAKE_CONFIGURATION_TYPES RelWithDebInfo)
-   else()
-      message("  XXX custom build types are not allowed...")
-   endif()
+include(CTest)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-   #always generate debug info
-   set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /DEBUG" )
+option(
+    PDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING
+    "Enable experimental per-pixel RBG0 coefficient table-base addressing"
+    OFF
+)
+option(
+    PDS_EXPERIMENTAL_NTSC_FRAME_CADENCE
+    "Enable the default-off 59.826 Hz NTSC raster cadence experiment"
+    OFF
+)
 
-   # REF/COMDAT folding
-   set( CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:REF /OPT:ICF" )
-   set( CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /OPT:REF /OPT:ICF" )
+macro(ADD_MSVC_PRECOMPILED_HEADER PrecompiledHeader PrecompiledSource SourcesVar)
+    if(MSVC)
+        get_filename_component(PrecompiledBasename ${PrecompiledHeader} NAME_WE)
+        get_filename_component(
+            PrecompiledSourceAbsolute
+            "${PrecompiledSource}"
+            ABSOLUTE
+            BASE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
+        )
+        set(PrecompiledBinary "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${PrecompiledBasename}.pch")
+        set(Sources ${${SourcesVar}})
+        list(REMOVE_ITEM Sources "${PrecompiledSource}" "${PrecompiledSourceAbsolute}")
 
-   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MP /MD /Zc:__cplusplus")
+        set_source_files_properties("${PrecompiledSourceAbsolute}"
+            PROPERTIES
+                COMPILE_FLAGS "/Yc\"${PrecompiledHeader}\" /Fp\"${PrecompiledBinary}\""
+                OBJECT_OUTPUTS "${PrecompiledBinary}"
+        )
+        set_source_files_properties(${Sources}
+            PROPERTIES
+                COMPILE_FLAGS "/Yu\"${PrecompiledHeader}\" /FI\"${PrecompiledHeader}\" /Fp\"${PrecompiledBinary}\""
+                OBJECT_DEPENDS "${PrecompiledBinary}"
+        )
+        list(APPEND ${SourcesVar} "${PrecompiledSourceAbsolute}")
+        list(REMOVE_DUPLICATES ${SourcesVar})
+    endif()
+endmacro()
 
-   set( CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /D_ITERATOR_DEBUG_LEVEL=1 /D_MSVC_STL_HARDENING=1")
-   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /D_ITERATOR_DEBUG_LEVEL=1 /D_MSVC_STL_HARDENING=1")
+if(MSVC AND CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_CONFIGURATION_TYPES
+        Debug
+        Release
+        Shipping
+        Release_Tracy
+        Debug_Asan
+        Release_Asan
+        Shipping_Asan
+        CACHE STRING "Available build configurations" FORCE
+    )
+endif()
 
-   set( CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /Zc:__cplusplus /Zc:preprocessor")
-   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zc:__cplusplus /Zc:preprocessor")
+function(pds_collect_targets output directory)
+    get_property(targets DIRECTORY "${directory}" PROPERTY BUILDSYSTEM_TARGETS)
+    get_property(subdirectories DIRECTORY "${directory}" PROPERTY SUBDIRECTORIES)
 
-   set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /Zc:__cplusplus /Zc:preprocessor")
-   set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zc:__cplusplus /Zc:preprocessor")
+    foreach(subdirectory IN LISTS subdirectories)
+        pds_collect_targets(subdirectory_targets "${subdirectory}")
+        list(APPEND targets ${subdirectory_targets})
+    endforeach()
 
-   # for edit and continue
-   set( CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MP /ZI /GR-")
-   set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MP /ZI /GR-")
+    set(${output} "${targets}" PARENT_SCOPE)
+endfunction()
 
-   set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MP /Zi /GR-")
-   set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MP /Zi /GR-")
+function(pds_apply_msvc_settings target)
+    get_target_property(target_type "${target}" TYPE)
+    if(NOT target_type MATCHES "^(EXECUTABLE|STATIC_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY|OBJECT_LIBRARY)$")
+        return()
+    endif()
 
-   COPY_BUILD_CONFIG(Debug Debug_Asan)
-   COPY_BUILD_CONFIG(Release Shipping)
-   COPY_BUILD_CONFIG(Release Release_Asan)
+    set_property(TARGET "${target}" PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug,Debug_Asan>:Debug>DLL"
+    )
 
-   # config shipping preprocessors
-   set( CMAKE_C_FLAGS_SHIPPING "${CMAKE_C_FLAGS_SHIPPING} -D SHIPPING_BUILD")
-   set( CMAKE_CXX_FLAGS_SHIPPING "${CMAKE_CXX_FLAGS_SHIPPING} -D SHIPPING_BUILD")
+    target_compile_definitions("${target}" PRIVATE
+        "$<$<CONFIG:Debug,Debug_Asan>:_DEBUG>"
+        "$<$<CONFIG:Debug,Debug_Asan>:_ITERATOR_DEBUG_LEVEL=1>"
+        "$<$<CONFIG:Debug,Debug_Asan>:_MSVC_STL_HARDENING=1>"
+        "$<$<CONFIG:Release,Shipping,Release_Tracy,Release_Asan,Shipping_Asan>:NDEBUG>"
+        "$<$<CONFIG:Shipping,Shipping_Asan>:SHIPPING_BUILD>"
+        "$<$<CONFIG:Release_Tracy>:TRACY_ENABLE>"
+        "$<$<CONFIG:Debug_Asan,Release_Asan,Shipping_Asan>:_DISABLE_STRING_ANNOTATION>"
+        "$<$<CONFIG:Debug_Asan,Release_Asan,Shipping_Asan>:_DISABLE_VECTOR_ANNOTATION>"
+    )
 
-   COPY_BUILD_CONFIG(Shipping Shipping_Asan)
+    target_compile_options("${target}" PRIVATE
+        "$<$<COMPILE_LANGUAGE:C,CXX>:/MP>"
+        "$<$<COMPILE_LANGUAGE:C,CXX>:/Zc:preprocessor>"
+        "$<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus>"
+        "$<$<COMPILE_LANGUAGE:CXX>:/GR->"
+        "$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Debug,Debug_Asan>>:/Od>"
+        "$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Debug,Debug_Asan>>:/Ob0>"
+        "$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Debug,Debug_Asan>>:/RTC1>"
+        "$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Debug>>:/ZI>"
+        "$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Debug_Asan,Release,Shipping,Release_Tracy,Release_Asan,Shipping_Asan>>:/Zi>"
+        "$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Release,Shipping,Release_Tracy,Release_Asan,Shipping_Asan>>:/O2>"
+        "$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Release,Shipping,Release_Tracy,Release_Asan,Shipping_Asan>>:/Ob2>"
+    )
+endfunction()
 
-   # enable asan
-   set(CMAKE_CXX_FLAGS_DEBUG_ASAN "${CMAKE_CXX_FLAGS_DEBUG_ASAN} /fsanitize=address /Zi")
-   set(CMAKE_CXX_FLAGS_RELEASE_ASAN "${CMAKE_CXX_FLAGS_RELEASE_ASAN} /fsanitize=address /Oy-")
-   set(CMAKE_CXX_FLAGS_SHIPPING_ASAN "${CMAKE_CXX_FLAGS_SHIPPING_ASAN} /fsanitize=address /Oy-")
-
-   # tracy in release build (but not shipping)
-   COPY_BUILD_CONFIG(Release Release_Tracy)
-   set(CMAKE_CXX_FLAGS_RELEASE_TRACY "${CMAKE_CXX_FLAGS_RELEASE_TRACY} -DTRACY_ENABLE")
-ENDIF(MSVC)
+function(pds_enable_msvc_asan target)
+    target_compile_options("${target}" PRIVATE
+        "$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Debug_Asan,Release_Asan,Shipping_Asan>>:/fsanitize=address>"
+        "$<$<AND:$<COMPILE_LANGUAGE:C,CXX>,$<CONFIG:Release_Asan,Shipping_Asan>>:/Oy->"
+    )
+endfunction()
 
 set(THIRD_PARTY "${CMAKE_SOURCE_DIR}/ThirdParty")
 
-# BGFX 
+# Build only the bgfx components used by PDS. shaderc is required by AzelLib.
 set(BGFX_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BGFX_BUILD_EXAMPLE_COMMON OFF CACHE BOOL "" FORCE)
+set(BGFX_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(BGFX_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory( ${THIRD_PARTY}/bgfx.cmake )
+set(BGFX_INSTALL_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BGFX_CUSTOM_TARGETS OFF CACHE BOOL "" FORCE)
+set(BGFX_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+set(BGFX_BUILD_TOOLS_BIN2C OFF CACHE BOOL "" FORCE)
+set(BGFX_BUILD_TOOLS_SHADER ON CACHE BOOL "" FORCE)
+set(BGFX_BUILD_TOOLS_GEOMETRY OFF CACHE BOOL "" FORCE)
+set(BGFX_BUILD_TOOLS_TEXTURE OFF CACHE BOOL "" FORCE)
+set(BGFX_CMAKE_USER_SCRIPT
+    "${CMAKE_SOURCE_DIR}/cmake/bgfx_shaderc_only.cmake"
+    CACHE FILEPATH "" FORCE
+)
+add_subdirectory("${THIRD_PARTY}/bgfx.cmake")
 
+# Build only the static SDL library used by PDS.
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+set(SDL_TESTS OFF CACHE BOOL "" FORCE)
+set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
+set(SDL_INSTALL_CPACK OFF CACHE BOOL "" FORCE)
+set(SDL_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
+set(SDL_INSTALL_TESTS OFF CACHE BOOL "" FORCE)
+set(SDL_INSTALL_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SDL_UNINSTALL OFF CACHE BOOL "" FORCE)
 set(SDL_DUMMYVIDEO OFF CACHE BOOL "" FORCE)
 set(SDL_RENDER_D3D OFF CACHE BOOL "" FORCE)
 set(SDL_DISKAUDIO OFF CACHE BOOL "" FORCE)
@@ -111,13 +161,45 @@ set(SDL_DUMMYAUDIO OFF CACHE BOOL "" FORCE)
 set(SDL_X11_XSCRNSAVER OFF CACHE BOOL "" FORCE)
 set(SDL_X11_XTEST OFF CACHE BOOL "" FORCE)
 
-add_subdirectory( AzelLib )
-add_subdirectory( ${THIRD_PARTY}/soloud )
+if(NOT CMAKE_SYSTEM_NAME MATCHES "iOS|tvOS" AND
+   NOT CMAKE_SYSTEM_NAME STREQUAL watchOS AND
+   NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    add_subdirectory("${THIRD_PARTY}/SDL")
+endif()
 
-IF(${CMAKE_SYSTEM_NAME} MATCHES iOS|tvOS)
-ELSEIF(${CMAKE_SYSTEM_NAME} STREQUAL watchOS)
-ELSEIF(${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
-ELSE()
-	add_subdirectory( ${THIRD_PARTY}/SDL )
-	add_subdirectory( PDS )
-ENDIF()
+add_subdirectory("${THIRD_PARTY}/soloud")
+add_subdirectory(AzelLib)
+
+if(NOT CMAKE_SYSTEM_NAME MATCHES "iOS|tvOS" AND
+   NOT CMAKE_SYSTEM_NAME STREQUAL watchOS AND
+   NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+    add_subdirectory(PDS)
+endif()
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
+
+if(MSVC)
+    pds_collect_targets(pds_targets "${CMAKE_CURRENT_SOURCE_DIR}")
+    foreach(target IN LISTS pds_targets)
+        pds_apply_msvc_settings("${target}")
+    endforeach()
+
+    foreach(target IN ITEMS
+        PDS
+        AzelLib
+        soloud
+        pds_core_tests
+        pds_input_recording_tests
+        pds_scsp_register_tests
+        pds_scsp_dsp_tests
+        pds_vdp2_color_tests
+        pds_rbg0_coefficient_tests
+        pds_frame_timing_tests
+    )
+        if(TARGET "${target}")
+            pds_enable_msvc_asan("${target}")
+        endif()
+    endforeach()
+endif()

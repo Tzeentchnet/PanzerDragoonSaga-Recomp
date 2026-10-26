@@ -1,7 +1,10 @@
 #include "PDS.h"
+#include "framePacing.h"
 #include "inputRecorder.h"
+#include "regressionCapture.h"
 
 #include <cstring>
+#include <cstdio>
 
 #if (defined(__APPLE__) && (TARGET_OS_OSX))
 #include <unistd.h> // for chdir
@@ -22,6 +25,11 @@ extern bool bContinue;
 
 int main(int argc, char* argv[])
 {
+    if (!regressionCapture_configure(argc, argv))
+    {
+        return 2;
+    }
+
 #if (defined(__APPLE__) && (TARGET_OS_OSX))
     char path[PATH_MAX];
     uint32_t pathLen = sizeof(path);
@@ -45,14 +53,81 @@ int main(int argc, char* argv[])
     readInputsFromSMPC();
     updateInputs();
 
-    // Deterministic input capture/replay from startup: --record <file> / --replay <file>
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--record") == 0 && (i + 1) < argc) {
-            inputRecorder_startRecording(argv[i + 1]);
+    const auto shutdown = []()
+    {
+        inputRecorder_stop();
+        gSoloud.stopAll();
+        gSoloud.deinit();
+        regressionCapture_shutdown();
+    };
+
+    if (!regressionCapture_initialize())
+    {
+        shutdown();
+        return 2;
+    }
+
+    const char* recordPath = nullptr;
+    const char* replayPath = nullptr;
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "--record") == 0)
+        {
+            if ((i + 1) >= argc)
+            {
+                std::fprintf(stderr, "--record requires a file path\n");
+                shutdown();
+                return 2;
+            }
+            recordPath = argv[++i];
         }
-        if (strcmp(argv[i], "--replay") == 0 && (i + 1) < argc) {
-            inputRecorder_startPlayback(argv[i + 1]);
+        else if (strcmp(argv[i], "--replay") == 0)
+        {
+            if ((i + 1) >= argc)
+            {
+                std::fprintf(stderr, "--replay requires a file path\n");
+                shutdown();
+                return 2;
+            }
+            replayPath = argv[++i];
         }
+        else if (strcmp(argv[i], "--experimental-ntsc-cadence") == 0)
+        {
+            if (!framePacing_enableExperimentalNtscCadence())
+            {
+                std::fprintf(
+                    stderr,
+                    "--experimental-ntsc-cadence requires a build configured with "
+                    "PDS_EXPERIMENTAL_NTSC_FRAME_CADENCE=ON\n"
+                );
+                shutdown();
+                return 2;
+            }
+        }
+    }
+    if (recordPath && replayPath)
+    {
+        std::fprintf(stderr, "--record and --replay cannot be used together\n");
+        shutdown();
+        return 2;
+    }
+    if (
+        recordPath &&
+        !inputRecorder_startRecording(
+            recordPath,
+            regressionCapture_getRouteName(),
+            regressionCapture_getRegion(),
+            regressionCapture_getConnectedMask()
+        )
+    )
+    {
+        shutdown();
+        return 2;
+    }
+    if (replayPath && !inputRecorder_startPlayback(replayPath))
+    {
+        shutdown();
+        return 2;
     }
 
 #ifdef __EMSCRIPTEN__
@@ -66,5 +141,7 @@ int main(int argc, char* argv[])
             break;
     };
 #endif
-    return 0;
+
+    shutdown();
+    return inputRecorder_hasFailed() || regressionCapture_hasFailed() ? 1 : 0;
 }

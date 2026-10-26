@@ -1,5 +1,6 @@
 #include "PDS.h"
 #include "commonOverlay.h"
+#include "sh2_div1.h"
 
 #ifdef _DEBUG
 class MathTest
@@ -149,63 +150,11 @@ u32 T = 0;
 
 void div1(s32& rm, s32& rn)
 {
-    unsigned long tmp0;
-    unsigned char old_q, tmp1;
-    old_q = Q;
-    Q = (unsigned char)((0x80000000 & rn) != 0);
-    rn <<= 1;
-    rn |= (unsigned long)T;
-    switch (old_q) {
-    case 0:
-        switch (M) {
-        case 0:tmp0 = rn;
-            rn -= rm;
-            tmp1 = (rn > tmp0);
-            switch (Q) {
-            case 0:Q = tmp1;
-                break;
-            case 1:Q = (unsigned char)(tmp1 == 0);
-                break;
-            }
-            break;
-        case 1:tmp0 = rn;
-            rn += rm;
-            tmp1 = (rn < tmp0);
-            switch (Q) {
-            case 0:Q = (unsigned char)(tmp1 == 0);
-                break;
-            case 1:Q = tmp1;
-                break;
-            }
-            break;
-        }
-        break;
-    case 1:
-        switch (M) {
-        case 0:tmp0 = rn;
-            rn += rm;
-            tmp1 = (rn < tmp0);
-            switch (Q) {
-            case 0:Q = tmp1;
-                break;
-            case 1:Q = (unsigned char)(tmp1 == 0);
-                break;
-            }
-            break;
-        case 1:tmp0 = rn;
-            rn -= rm;
-            tmp1 = (rn > tmp0);
-            switch (Q) {
-            case 0:Q = (unsigned char)(tmp1 == 0);
-                break;
-            case 1:Q = tmp1;
-                break;
-            }
-            break;
-        }
-        break;
-    }
-    T = (Q == M);
+    sh2::Div1State state{Q != 0, M != 0, T != 0};
+    sh2::div1(rm, rn, state);
+    Q = static_cast<u32>(state.q);
+    M = static_cast<u32>(state.m);
+    T = static_cast<u32>(state.t);
 }
 
 // this is atan2
@@ -285,4 +234,3 @@ s32 atan2_FP(s32 y, s32 x)
     }
     return 0;
 }
-

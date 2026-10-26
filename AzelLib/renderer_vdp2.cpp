@@ -1,4 +1,7 @@
 #include "PDS.h"
+#include "rbg0CoefficientAddressing.h"
+#include "regressionCapture.h"
+#include "regressionCapture.h"
 #include "renderer_vdp2.h"
 #include "renderer/renderer.h"
 #include "battle/BTL_A3/BTL_A3_map6.h"
@@ -948,7 +951,8 @@ static void renderLayerCPU_RBG0(
     u32 coeftbladdr_A = 0;
     if (coefenab_A)
     {
-        coeftbladdr_A = (u32)(ktaof & 0x7) * coefdatasize_A * 0x10000;
+        coeftbladdr_A =
+            pds::vdp2::coefficientTableBase(ktaof, false, coefdatasize_A);
     }
     s32 KAst_A = truncFP(tA.m54);
     bool perPixelCoeff_A = coefenab_A && (deltaKAx_A != 0);
@@ -996,7 +1000,8 @@ static void renderLayerCPU_RBG0(
         coefdatasize_B = (ktctl & 0x200) ? 2 : 4;
         if (coefenab_B)
         {
-            coeftbladdr_B = (u32)((ktaof >> 8) & 0x7) * coefdatasize_B * 0x10000;
+            coeftbladdr_B =
+                pds::vdp2::coefficientTableBase(ktaof, true, coefdatasize_B);
         }
         perPixelCoeff_B = coefenab_B && (deltaKAx_B != 0);
     }
@@ -1050,6 +1055,10 @@ static void renderLayerCPU_RBG0(
     bool rpLineWnd1 = rpWnd1Enabled && (vdp2Controls.m4_pendingVdp2Regs->mDC_LWTA1 & 0x80000000);
     u32 rpLineWnd0Addr = rpLineWnd0 ? ((vdp2Controls.m4_pendingVdp2Regs->mD8_LWTA0 & 0x7FFFE) << 1) : 0;
     u32 rpLineWnd1Addr = rpLineWnd1 ? ((vdp2Controls.m4_pendingVdp2Regs->mDC_LWTA1 & 0x7FFFE) << 1) : 0;
+#if defined(PDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING)
+    const bool traceCoefficientFetches =
+        regressionCapture_isRbg0CoefficientTraceEnabled();
+#endif
 
     for (u32 j = 0; j < textureHeight; j++)
     {
@@ -1094,8 +1103,27 @@ static void renderLayerCPU_RBG0(
         bool msb_A = false;
         if (!perPixelCoeff_A && coefenab_A)
         {
-            u32 vramAddr = coeftbladdr_A + ((u32)coefAccum_A >> 16) * coefdatasize_A;
+            u32 vramAddr = pds::vdp2::coefficientAddress(
+                coeftbladdr_A,
+                coefAccum_A,
+                coefdatasize_A
+            );
             kx_A = readCoefficientFromVRAM(vramAddr, msb_A);
+#if defined(PDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING)
+            if (traceCoefficientFetches)
+            {
+                regressionCapture_recordRbg0Coefficient(
+                    frameIndex,
+                    j,
+                    0,
+                    false,
+                    false,
+                    coefAccum_A,
+                    coeftbladdr_A,
+                    vramAddr & 0x7ffff
+                );
+            }
+#endif
         }
 
         // Read per-scanline coefficient B from VRAM
@@ -1103,8 +1131,27 @@ static void renderLayerCPU_RBG0(
         bool msb_B = false;
         if (!perPixelCoeff_B && coefenab_B)
         {
-            u32 vramAddr = coeftbladdr_B + ((u32)coefAccum_B >> 16) * coefdatasize_B;
+            u32 vramAddr = pds::vdp2::coefficientAddress(
+                coeftbladdr_B,
+                coefAccum_B,
+                coefdatasize_B
+            );
             kx_B = readCoefficientFromVRAM(vramAddr, msb_B);
+#if defined(PDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING)
+            if (traceCoefficientFetches)
+            {
+                regressionCapture_recordRbg0Coefficient(
+                    frameIndex,
+                    j,
+                    0,
+                    true,
+                    false,
+                    coefAccum_B,
+                    coeftbladdr_B,
+                    vramAddr & 0x7ffff
+                );
+            }
+#endif
         }
 
         // GenerateRotatedXPosFP/YPosFP:
@@ -1129,17 +1176,75 @@ static void renderLayerCPU_RBG0(
             // Per-pixel coefficient reading from VRAM
             if (perPixelCoeff_A)
             {
-                u32 vramAddr = ((u32)pixelCoefAccum_A >> 16) * coefdatasize_A;
+                u32 vramAddr =
+#if defined(PDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING)
+                    pds::vdp2::coefficientAddress(
+                        coeftbladdr_A,
+                        pixelCoefAccum_A,
+                        coefdatasize_A
+                    );
+#else
+                    pds::vdp2::coefficientAddress(
+                        0,
+                        pixelCoefAccum_A,
+                        coefdatasize_A
+                    );
+#endif
                 kx_A = readCoefficientFromVRAM(vramAddr, msb_A);
-                pixelCoefAccum_A += deltaKAx_A;
+#if defined(PDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING)
+                if (traceCoefficientFetches)
+                {
+                    regressionCapture_recordRbg0Coefficient(
+                        frameIndex,
+                        j,
+                        i,
+                        false,
+                        true,
+                        pixelCoefAccum_A,
+                        coeftbladdr_A,
+                        vramAddr & 0x7ffff
+                    );
+                }
+#endif
+                pixelCoefAccum_A =
+                    pds::vdp2::wrappingAdd(pixelCoefAccum_A, deltaKAx_A);
             }
 
             // Per-pixel coefficient reading for B
             if (perPixelCoeff_B)
             {
-                u32 vramAddr = ((u32)pixelCoefAccum_B >> 16) * coefdatasize_B;
+                u32 vramAddr =
+#if defined(PDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING)
+                    pds::vdp2::coefficientAddress(
+                        coeftbladdr_B,
+                        pixelCoefAccum_B,
+                        coefdatasize_B
+                    );
+#else
+                    pds::vdp2::coefficientAddress(
+                        0,
+                        pixelCoefAccum_B,
+                        coefdatasize_B
+                    );
+#endif
                 kx_B = readCoefficientFromVRAM(vramAddr, msb_B);
-                pixelCoefAccum_B += deltaKAx_B;
+#if defined(PDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING)
+                if (traceCoefficientFetches)
+                {
+                    regressionCapture_recordRbg0Coefficient(
+                        frameIndex,
+                        j,
+                        i,
+                        true,
+                        true,
+                        pixelCoefAccum_B,
+                        coeftbladdr_B,
+                        vramAddr & 0x7ffff
+                    );
+                }
+#endif
+                pixelCoefAccum_B =
+                    pds::vdp2::wrappingAdd(pixelCoefAccum_B, deltaKAx_B);
             }
 
             // Determine which rotation parameter to use
@@ -1222,12 +1327,12 @@ static void renderLayerCPU_RBG0(
 
         xmul_A += deltaXst_A;
         ymul_A += deltaYst_A;
-        coefAccum_A += deltaKAst_A;
+        coefAccum_A = pds::vdp2::wrappingAdd(coefAccum_A, deltaKAst_A);
         if (pTB)
         {
             xmul_B += truncFP(pTB->mC);
             ymul_B += truncFP(pTB->m10);
-            coefAccum_B += deltaKAst_B;
+            coefAccum_B = pds::vdp2::wrappingAdd(coefAccum_B, deltaKAst_B);
         }
     }
 }
@@ -1246,6 +1351,13 @@ static void renderLayerCPU_RBG0_wrapper(
 
     renderLayerCPU_RBG0(tA, pTB, textureWidth, textureHeight,
         layerDataA, pLayerDataB, rpmd, output);
+    regressionCapture_writeRgbaTga(
+        frameIndex,
+        "rbg0",
+        output,
+        static_cast<u16>(textureWidth),
+        static_cast<u16>(textureHeight)
+    );
 
     // Upload to bgfx texture
     if (!isValid(NBGData.BGFXTexture) || NBGData.m_currentWidth != (int)textureWidth || NBGData.m_currentHeight != (int)textureHeight)

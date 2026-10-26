@@ -1,27 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
-
-include_directories(
-    "."
-#    "${THIRD_PARTY}"
-    "${THIRD_PARTY}/SDL/include"
-    "${THIRD_PARTY}/imgui"
-    "${THIRD_PARTY}/imgui/backends"
-    "${THIRD_PARTY}/ImGuizmo"
-    #"${THIRD_PARTY}/bgfx.cmake/bgfx/3rdparty/dear-imgui"
-    "${THIRD_PARTY}/soloud/soloud/include"
-    "${THIRD_PARTY}/glm"
-    "${THIRD_PARTY}/tracy/public"
-    "${THIRD_PARTY}/bgfx.cmake/bgfx/include"
-    "${THIRD_PARTY}/bgfx.cmake/bx/include"
-    "${THIRD_PARTY}/bgfx.cmake/bx/include/compat/msvc"
-    "${THIRD_PARTY}/bgfx.cmake/bgfx/3rdparty"
-    "${THIRD_PARTY}/bgfx.cmake/bimg/include"
-    "${THIRD_PARTY}/aosdk"
-)
-
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+cmake_minimum_required(VERSION 3.21)
 
 file(GLOB_RECURSE SRC_ROOT CONFIGURE_DEPENDS
     "*.cpp"
@@ -47,71 +24,8 @@ function(assign_source_group)
 endfunction(assign_source_group)
 
 
-if( MSVC )
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_SDL -D_HAS_EXCEPTIONS=0 /GR-")
-	# Eliminate unreferenced functions and data
-	# Perform identical COMDAT folding
-	#set( REL_LINKER_FLAGS "/opt:ref /opt:icf /nodefaultlib:msvcrt" )
-    #
-    ## Make console app
-    #set( CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} /subsystem:console" )
-    #
-	## String pooling
-	## Function-level linking
-	## Disable run-time type information
-	#set( ALL_C_FLAGS "/GF /Gy /GR-" )
-	#
-	## Avoid CRT DLL dependancies in release builds
-	#set( REL_C_FLAGS "/MT" )
-    #
-	## Disable warnings for unsecure CRT functions from VC8+
-	#if( MSVC_VERSION GREATER 1399 )
-	#	set( ALL_C_FLAGS "${ALL_C_FLAGS} /wd4996" )
-	#endif( MSVC_VERSION GREATER 1399 )
-	
-	# The CMake configurations set /GR and /MD by default, which conflict with our settings.
-	#string(REPLACE "/MD " " " CMAKE_CXX_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE} )
-	#string(REPLACE "/MD " " " CMAKE_CXX_FLAGS_MINSIZEREL ${CMAKE_CXX_FLAGS_MINSIZEREL} )
-	#string(REPLACE "/MD " " " CMAKE_CXX_FLAGS_RELWITHDEBINFO ${CMAKE_CXX_FLAGS_RELWITHDEBINFO} )
-	#string(REPLACE "/MD " " " CMAKE_C_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE} )
-	#string(REPLACE "/MD " " " CMAKE_C_FLAGS_MINSIZEREL ${CMAKE_C_FLAGS_MINSIZEREL} )
-	#string(REPLACE "/MD " " " CMAKE_C_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO} )
-	#string(REPLACE " /GR" " " CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} )
-endif( MSVC )
-
-#set( CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} ${REL_LINKER_FLAGS}" )
-#set( CMAKE_EXE_LINKER_FLAGS_MINSIZEREL "${CMAKE_EXE_LINKER_FLAGS_MINSIZEREL} ${REL_LINKER_FLAGS}" )
-#set( CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} ${REL_LINKER_FLAGS}" )
-#
-#set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ALL_C_FLAGS}" )
-#set( CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${REL_C_FLAGS}" )
-#set( CMAKE_C_FLAGS_MINSIZEREL "${CMAKE_C_FLAGS_MINSIZEREL} ${REL_C_FLAGS}" )
-#set( CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${REL_C_FLAGS}" )
-#set( CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${DEB_C_FLAGS} -D_DEBUG" )
-#
-#set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ALL_C_FLAGS}" )
-#set( CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} ${REL_C_FLAGS}" )
-#set( CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL} ${REL_C_FLAGS}" )
-#set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${REL_C_FLAGS}" )
-#set( CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${DEB_C_FLAGS} -D_DEBUG" )
-#
-#STRING(REGEX REPLACE "/EH[a-z]+" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) # Disable C++ exceptions
-#STRING(REGEX REPLACE "/GR" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) # Disable RTTI
-
-# Always generate debug info
 if(MSVC)
-  #set( CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /debug" )
-  #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zi /GR-")
-else()
-  #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-endif()
-
-if (MSVC)
-ADD_MSVC_PRECOMPILED_HEADER("PDS.h" "PDS_Precompiled.cpp" SOURCES)
-
-SET_SOURCE_FILES_PROPERTIES("PDS_Precompiled.cpp"
-                            PROPERTIES COMPILE_FLAGS "/Yc\"PDS.h\" /FI\"PDS.h\" /Fp\"PDS.pch\""
-                                        OBJECT_DEPENDS "PDS.pch")
+    ADD_MSVC_PRECOMPILED_HEADER("PDS.h" "PDS_Precompiled.cpp" SOURCES)
 endif()
                                         
 
@@ -126,8 +40,8 @@ set(SOURCES
  ${THIRD_PARTY}/imgui/imgui_widgets.cpp
  ${THIRD_PARTY}/imgui/backends/imgui_impl_sdl3.cpp
 
- ${THIRD_PARTY}/ImGuizmo/ImGuizmo.cpp
- ${THIRD_PARTY}/ImGuizmo/ImGuizmo.h
+ ${THIRD_PARTY}/ImGuizmo/src/ImGuizmo.cpp
+ ${THIRD_PARTY}/ImGuizmo/src/ImGuizmo.h
 
  ${THIRD_PARTY}/aosdk/eng_ssf/m68kcpu.c
  ${THIRD_PARTY}/aosdk/eng_ssf/m68kopac.c
@@ -144,49 +58,186 @@ set(SOURCES
 
 include(shaderc_prebuilt.cmake)
 
-macro(addShaderProgramPermutation vsname psname varyingname)
-    bgfx_compile_shaders(SHADERS shaders/${vsname}.sc AS_HEADERS OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders/generated TYPE VERTEX VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${varyingname}.sc INCLUDE_DIRS ${BGFX_DIR}/src AS_HEADERS)
-    bgfx_compile_shaders(SHADERS shaders/${psname}.sc AS_HEADERS OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders/generated TYPE FRAGMENT VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${varyingname}.sc INCLUDE_DIRS ${BGFX_DIR}/src AS_HEADERS)
-endmacro()
+set(VDP1_VERTEX_SHADERS
+    shaders/VDP1_vs.sc
+    shaders/VDP1_vertexColor_vs.sc
+    shaders/VDP1_worldTextured_vs.sc
+    shaders/VDP1_2dUI_vs.sc
+    shaders/VDP1_2dUIVertexColor_vs.sc
+)
 
-macro(addShaderProgram vsname psname varyingname)
+set(VDP1_FRAGMENT_SHADERS
+    shaders/VDP1_ps.sc
+    shaders/VDP1_vertexColor_ps.sc
+    shaders/VDP1_worldTextured_ps.sc
+    shaders/VDP1_2dUI_ps.sc
+    shaders/VDP1_2dUIVertexColor_ps.sc
+)
 
-    set(SOURCES
-        ${SOURCES}
-        shaders/${vsname}.sc
-        shaders/${psname}.sc
-        shaders/${varyingname}.sc
-    )
+set(VDP2_VERTEX_SHADERS
+    shaders/VDP2_vs.sc
+)
 
-    addShaderProgramPermutation(${vsname} ${psname} ${varyingname})
-    addShaderProgramPermutation(${vsname} ${psname} ${varyingname})
+set(VDP2_FRAGMENT_SHADERS
+    shaders/VDP2_ps.sc
+    shaders/VDP2_RBG0_ps.sc
+    shaders/VDP2_RBG0_dual_ps.sc
+)
 
-endmacro()
+set(VDP2_BLIT_VERTEX_SHADERS
+    shaders/VDP2_blit_vs.sc
+)
 
-addShaderProgram(VDP1_vs VDP1_ps VDP1.varying.def)
-addShaderProgram(VDP1_vertexColor_vs VDP1_vertexColor_ps VDP1.varying.def)
-addShaderProgram(VDP1_worldTextured_vs VDP1_worldTextured_ps VDP1.varying.def)
-addShaderProgram(VDP1_2dUI_vs VDP1_2dUI_ps VDP1.varying.def)
-addShaderProgram(VDP1_2dUIVertexColor_vs VDP1_2dUIVertexColor_ps VDP1.varying.def)
-addShaderProgram(VDP2_vs VDP2_ps VDP2_vs.varying.def)
-addShaderProgram(VDP2_vs VDP2_RBG0_ps VDP2_vs.varying.def)
-addShaderProgram(VDP2_vs VDP2_RBG0_dual_ps VDP2_vs.varying.def)
-addShaderProgram(VDP2_blit_vs VDP2_blit_ps VDP2_blit.varying.def)
-addShaderProgram(VDP2_blit_vs VDP2_blit_vdp1_ps VDP2_blit.varying.def)
-addShaderProgram(VDP2_blit_vs VDP2_composite_ps VDP2_blit.varying.def)
+set(VDP2_BLIT_FRAGMENT_SHADERS
+    shaders/VDP2_blit_ps.sc
+    shaders/VDP2_blit_vdp1_ps.sc
+    shaders/VDP2_composite_ps.sc
+)
+
+set(AZEL_SHADER_SOURCES
+    ${VDP1_VERTEX_SHADERS}
+    ${VDP1_FRAGMENT_SHADERS}
+    shaders/VDP1.varying.def.sc
+    ${VDP2_VERTEX_SHADERS}
+    ${VDP2_FRAGMENT_SHADERS}
+    shaders/VDP2_vs.varying.def.sc
+    ${VDP2_BLIT_VERTEX_SHADERS}
+    ${VDP2_BLIT_FRAGMENT_SHADERS}
+    shaders/VDP2_blit.varying.def.sc
+)
+
+set(SOURCES
+    ${SOURCES}
+    ${AZEL_SHADER_SOURCES}
+)
+
+set(AZEL_SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders/generated/$<CONFIG>")
+
+bgfx_compile_shaders(
+    SHADERS ${VDP1_VERTEX_SHADERS}
+    TYPE VERTEX
+    VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP1.varying.def.sc
+    OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
+    INCLUDE_DIRS ${BGFX_DIR}/src
+    AS_HEADERS
+    OUT_FILES_VAR VDP1_VERTEX_SHADER_HEADERS
+)
+bgfx_compile_shaders(
+    SHADERS ${VDP1_FRAGMENT_SHADERS}
+    TYPE FRAGMENT
+    VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP1.varying.def.sc
+    OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
+    INCLUDE_DIRS ${BGFX_DIR}/src
+    AS_HEADERS
+    OUT_FILES_VAR VDP1_FRAGMENT_SHADER_HEADERS
+)
+bgfx_compile_shaders(
+    SHADERS ${VDP2_VERTEX_SHADERS}
+    TYPE VERTEX
+    VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP2_vs.varying.def.sc
+    OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
+    INCLUDE_DIRS ${BGFX_DIR}/src
+    AS_HEADERS
+    OUT_FILES_VAR VDP2_VERTEX_SHADER_HEADERS
+)
+bgfx_compile_shaders(
+    SHADERS ${VDP2_FRAGMENT_SHADERS}
+    TYPE FRAGMENT
+    VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP2_vs.varying.def.sc
+    OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
+    INCLUDE_DIRS ${BGFX_DIR}/src
+    AS_HEADERS
+    OUT_FILES_VAR VDP2_FRAGMENT_SHADER_HEADERS
+)
+bgfx_compile_shaders(
+    SHADERS ${VDP2_BLIT_VERTEX_SHADERS}
+    TYPE VERTEX
+    VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP2_blit.varying.def.sc
+    OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
+    INCLUDE_DIRS ${BGFX_DIR}/src
+    AS_HEADERS
+    OUT_FILES_VAR VDP2_BLIT_VERTEX_SHADER_HEADERS
+)
+bgfx_compile_shaders(
+    SHADERS ${VDP2_BLIT_FRAGMENT_SHADERS}
+    TYPE FRAGMENT
+    VARYING_DEF ${CMAKE_CURRENT_SOURCE_DIR}/shaders/VDP2_blit.varying.def.sc
+    OUTPUT_DIR ${AZEL_SHADER_OUTPUT_DIR}
+    INCLUDE_DIRS ${BGFX_DIR}/src
+    AS_HEADERS
+    OUT_FILES_VAR VDP2_BLIT_FRAGMENT_SHADER_HEADERS
+)
+
+set(AZEL_SHADER_HEADERS
+    ${VDP1_VERTEX_SHADER_HEADERS}
+    ${VDP1_FRAGMENT_SHADER_HEADERS}
+    ${VDP2_VERTEX_SHADER_HEADERS}
+    ${VDP2_FRAGMENT_SHADER_HEADERS}
+    ${VDP2_BLIT_VERTEX_SHADER_HEADERS}
+    ${VDP2_BLIT_FRAGMENT_SHADER_HEADERS}
+)
+
+add_custom_target(AzelLib-shaders DEPENDS ${AZEL_SHADER_HEADERS})
 
 assign_source_group(${SOURCES})
 
 IF(${CMAKE_SYSTEM_NAME} MATCHES iOS)
 add_library (AzelLib-ios ${SOURCES})
-target_compile_definitions( AzelLib-ios PUBLIC "BX_CONFIG_DEBUG=0" )
+set(AZEL_LIBRARY_TARGET AzelLib-ios)
 ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES tvOS)
 add_library (AzelLib-tvos ${SOURCES})
-target_compile_definitions( AzelLib-tvos PUBLIC "BX_CONFIG_DEBUG=0" )
+set(AZEL_LIBRARY_TARGET AzelLib-tvos)
 ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES Darwin)
 add_library (AzelLib-darwin ${SOURCES})
-target_compile_definitions( AzelLib-darwin PUBLIC "BX_CONFIG_DEBUG=0" )
+set(AZEL_LIBRARY_TARGET AzelLib-darwin)
 ELSE()
 add_library (AzelLib ${SOURCES})
-target_compile_definitions( AzelLib PUBLIC "BX_CONFIG_DEBUG=0" )
+set(AZEL_LIBRARY_TARGET AzelLib)
 ENDIF()
+
+add_library(Azel::AzelLib ALIAS ${AZEL_LIBRARY_TARGET})
+
+set_target_properties(${AZEL_LIBRARY_TARGET} PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF
+)
+
+target_compile_definitions(${AZEL_LIBRARY_TARGET}
+    PRIVATE
+        USE_SDL
+        _HAS_EXCEPTIONS=0
+        "$<$<BOOL:${PDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING}>:PDS_EXPERIMENTAL_RBG0_COEFFICIENT_ADDRESSING=1>"
+        "$<$<BOOL:${PDS_EXPERIMENTAL_NTSC_FRAME_CADENCE}>:PDS_EXPERIMENTAL_NTSC_FRAME_CADENCE=1>"
+    PUBLIC
+        BX_CONFIG_DEBUG=0
+)
+
+target_include_directories(${AZEL_LIBRARY_TARGET}
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${THIRD_PARTY}/imgui"
+        "${THIRD_PARTY}/glm"
+        "${THIRD_PARTY}/tracy/public"
+        "${THIRD_PARTY}/bgfx.cmake/bx/include"
+        "${THIRD_PARTY}/bgfx.cmake/bx/include/compat/msvc"
+    PRIVATE
+        "${AZEL_SHADER_OUTPUT_DIR}"
+        "${THIRD_PARTY}/imgui/backends"
+        "${THIRD_PARTY}/ImGuizmo/src"
+        "${THIRD_PARTY}/bgfx.cmake/bgfx/3rdparty"
+        "${THIRD_PARTY}/bgfx.cmake/bimg/include"
+        "${THIRD_PARTY}/aosdk"
+)
+
+if(TARGET SoLoud::SoLoud)
+    target_link_libraries(${AZEL_LIBRARY_TARGET} PUBLIC SoLoud::SoLoud)
+endif()
+if(TARGET bgfx)
+    target_link_libraries(${AZEL_LIBRARY_TARGET} PUBLIC bgfx)
+endif()
+if(TARGET SDL3::SDL3-static)
+    target_link_libraries(${AZEL_LIBRARY_TARGET} PUBLIC SDL3::SDL3-static)
+endif()
+
+add_dependencies(${AZEL_LIBRARY_TARGET} AzelLib-shaders)

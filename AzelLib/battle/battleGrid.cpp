@@ -524,6 +524,6 @@ static const std::vector<s_memberDefinitions> members = {
 
 void s_battleGrid::Inspect()
 {
-    InspectTask(str(s_battleGrid), this, members);
+    InspectTask(PDS_STRINGIZE(s_battleGrid), this, members);
 }
 #endif

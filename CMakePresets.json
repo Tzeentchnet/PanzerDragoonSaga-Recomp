@@ -1,0 +1,182 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "vs2022-x64",
+      "displayName": "Visual Studio 2022 x64",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build_vs2022"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "vs2022-debug",
+      "displayName": "PDS - Debug",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Debug",
+      "jobs": 4,
+      "targets": [
+        "PDS",
+        "pds_tests"
+      ]
+    },
+    {
+      "name": "vs2022-release",
+      "displayName": "PDS - Release",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Release",
+      "jobs": 4,
+      "targets": [
+        "PDS",
+        "pds_tests"
+      ]
+    },
+    {
+      "name": "vs2022-shipping",
+      "displayName": "PDS - Shipping",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Shipping",
+      "jobs": 4,
+      "targets": [
+        "PDS",
+        "pds_tests"
+      ]
+    },
+    {
+      "name": "vs2022-release-tracy",
+      "displayName": "PDS - Release with Tracy",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Release_Tracy",
+      "jobs": 4,
+      "targets": [
+        "PDS",
+        "pds_tests"
+      ]
+    },
+    {
+      "name": "vs2022-debug-asan",
+      "displayName": "PDS - Debug with AddressSanitizer",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Debug_Asan",
+      "jobs": 4,
+      "targets": [
+        "PDS",
+        "pds_tests"
+      ]
+    },
+    {
+      "name": "vs2022-release-asan",
+      "displayName": "PDS - Release with AddressSanitizer",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Release_Asan",
+      "jobs": 4,
+      "targets": [
+        "PDS",
+        "pds_tests"
+      ]
+    },
+    {
+      "name": "vs2022-shipping-asan",
+      "displayName": "PDS - Shipping with AddressSanitizer",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Shipping_Asan",
+      "jobs": 4,
+      "targets": [
+        "PDS",
+        "pds_tests"
+      ]
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "vs2022-debug",
+      "displayName": "Tests - Debug",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "vs2022-release",
+      "displayName": "Tests - Release",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "vs2022-shipping",
+      "displayName": "Tests - Shipping",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Shipping",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "vs2022-release-tracy",
+      "displayName": "Tests - Release with Tracy",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Release_Tracy",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "vs2022-debug-asan",
+      "displayName": "Tests - Debug with AddressSanitizer",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Debug_Asan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "vs2022-release-asan",
+      "displayName": "Tests - Release with AddressSanitizer",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Release_Asan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "vs2022-shipping-asan",
+      "displayName": "Tests - Shipping with AddressSanitizer",
+      "configurePreset": "vs2022-x64",
+      "configuration": "Shipping_Asan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    }
+  ]
+}

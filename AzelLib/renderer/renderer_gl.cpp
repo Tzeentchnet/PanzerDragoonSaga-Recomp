@@ -117,4 +117,3 @@ void SDL_ES3_backend::ImGUI_RenderDrawData(ImDrawData* pDrawData)
         //ImGui_ImplOpenGL3_RenderDrawData(pDrawData);
     }
 }
-

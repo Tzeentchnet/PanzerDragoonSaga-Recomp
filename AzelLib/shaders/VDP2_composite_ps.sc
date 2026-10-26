@@ -13,6 +13,18 @@ uniform vec4 u_vdp2Regs0; // x=BGON, y=PRINA, z=PRINB, w=PRIR
 uniform vec4 u_vdp2Regs1; // x=CCCTL, y=CCRNA, z=SFCCMD, w=SFCODE
 uniform vec4 u_vdp2Regs2; // x=CCRNB, y=CCRR, z=unused, w=unused
 
+vec3 calculateRatioColor(vec3 topColor, vec3 secondColor, float ratioNumber)
+{
+    float topWeight = (31.0 - ratioNumber) / 32.0;
+    float secondWeight = (ratioNumber + 1.0) / 32.0;
+    return topColor * topWeight + secondColor * secondWeight;
+}
+
+vec3 calculateAdditiveColor(vec3 topColor, vec3 secondColor)
+{
+    return min(topColor + secondColor, vec3(1.0, 1.0, 1.0));
+}
+
 void main()
 {
     vec2 uv = v_texcoord0;
@@ -37,11 +49,9 @@ void main()
     // CCMD: bit 8 of CCCTL (0 = ratio mode, 1 = add mode)
     float ccmd = step(1.0, mod(floor(CCCTL / 256.0), 2.0));
 
-    // Color calculation ratios (0-31 range, normalized to 0-1)
-    // TODO: This is likely incorrect, because a value of 0 should mean 31:1, and 32 should mean 0:32
-    float nbg0Ratio = 1.f - (mod(CCRNA, 32.0) / 31.0);
-    float nbg1Ratio = 1.f - (mod(CCRNB, 32.0) / 31.0);
-    float rgb0Ratio = 1.f - (mod(CCRR, 32.0) / 31.0);
+    float nbg0RatioNumber = mod(CCRNA, 32.0);
+    float nbg1RatioNumber = mod(floor(CCRNA / 256.0), 32.0);
+    float rbg0RatioNumber = mod(CCRR, 32.0);
 
     // Special color calculation mode for NBG1 (bits 2-3 of SFCCMD)
     float nbg1SCCM = mod(floor(SFCCMD / 4.0), 4.0);
@@ -101,9 +111,9 @@ void main()
                 if (dotColor >= nbg1SPCCN)
                 {
                     if (ccmd > 0.0)
-                        result = vec4(min(nbg1Color.rgb + result.rgb * nbg1Ratio, vec3(1.0, 1.0, 1.0)), 1.0);
+                        result = vec4(calculateAdditiveColor(nbg1Color.rgb, result.rgb), 1.0);
                     else
-                        result = vec4(mix(result.rgb, nbg1Color.rgb, nbg1Ratio), 1.0);
+                        result = vec4(calculateRatioColor(nbg1Color.rgb, result.rgb, nbg1RatioNumber), 1.0);
                 }
                 else
                 {
@@ -112,8 +122,10 @@ void main()
             }
             else if (nbg1SCCM < 1.0 && nbg1CC > 0.0)
             {
-                float nbg1Ratio = mod(floor(CCRNA / 256.0), 32.0) / 31.0;
-                result = vec4(mix(result.rgb, nbg1Color.rgb, nbg1Ratio), 1.0);
+                if (ccmd > 0.0)
+                    result = vec4(calculateAdditiveColor(nbg1Color.rgb, result.rgb), 1.0);
+                else
+                    result = vec4(calculateRatioColor(nbg1Color.rgb, result.rgb, nbg1RatioNumber), 1.0);
             }
             else
             {
@@ -127,9 +139,9 @@ void main()
             if (nbg0CC > 0.0)
             {
                 if (ccmd > 0.0)
-                    result = vec4(min(nbg0Color.rgb + result.rgb * nbg0Ratio, vec3(1.0, 1.0, 1.0)), 1.0);
+                    result = vec4(calculateAdditiveColor(nbg0Color.rgb, result.rgb), 1.0);
                 else
-                    result = vec4(mix(result.rgb, nbg0Color.rgb, nbg0Ratio), 1.0);
+                    result = vec4(calculateRatioColor(nbg0Color.rgb, result.rgb, nbg0RatioNumber), 1.0);
             }
             else
             {
@@ -143,9 +155,9 @@ void main()
             if (rbg0CC > 0.0)
             {
                 if (ccmd > 0.0)
-                    result = vec4(min(rbg0Color.rgb + result.rgb * rgb0Ratio, vec3(1.0, 1.0, 1.0)), 1.0);
+                    result = vec4(calculateAdditiveColor(rbg0Color.rgb, result.rgb), 1.0);
                 else
-                    result = vec4(mix(result.rgb, rbg0Color.rgb, rgb0Ratio), 1.0);
+                    result = vec4(calculateRatioColor(rbg0Color.rgb, result.rgb, rbg0RatioNumber), 1.0);
             }
             else
             {

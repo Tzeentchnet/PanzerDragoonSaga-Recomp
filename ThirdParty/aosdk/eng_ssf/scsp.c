@@ -610,9 +610,9 @@ static void SCSP_w16(struct _SCSP *SCSP,unsigned int addr,unsigned short val)
 		//DSP
 		if(addr<0x780)	//COEF
 			*((unsigned short *) (SCSP->DSP.COEF+(addr-0x700)/2))=val;
-		else if(addr<0x800)
+		else if(addr<0x7C0)
 			*((unsigned short *) (SCSP->DSP.MADRS+(addr-0x780)/2))=val;
-		else if(addr<0xC00)
+		else if(addr>=0x800 && addr<0xC00)
 			*((unsigned short *) (SCSP->DSP.MPRO+(addr-0x800)/2))=val;
 
 		if(addr==0xBF0)
@@ -644,6 +644,14 @@ static unsigned short SCSP_r16(struct _SCSP *SCSP, unsigned int addr)
 	}
 	else if(addr<0x700)
 		v=SCSP->RINGBUF[(addr-0x600)/2];
+	else if(addr<0x780)
+		v=*((unsigned short *) (SCSP->DSP.COEF+(addr-0x700)/2));
+	else if(addr<0x7C0)
+		v=*((unsigned short *) (SCSP->DSP.MADRS+(addr-0x780)/2));
+	else if(addr<0x800)
+		v=0;
+	else if(addr<0xC00)
+		v=*((unsigned short *) (SCSP->DSP.MPRO+(addr-0x800)/2));
 	return v;
 }
 
@@ -1072,4 +1080,3 @@ READ16_HANDLER( SCSP_MidiOutR )
 	SCSP.MidiR&=7;
 	return val;
 }
-

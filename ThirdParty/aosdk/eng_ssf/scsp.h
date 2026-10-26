@@ -120,7 +120,7 @@ struct _SLOT
 #define DAC18B(scsp)		((scsp->udata.data[0]>>0x0)&0x0100)
 #define MVOL(scsp)		((scsp->udata.data[0]>>0x0)&0x000F)
 #define RBL(scsp)		((scsp->udata.data[1]>>0x7)&0x0003)
-#define RBP(scsp)		((scsp->udata.data[1]>>0x0)&0x003F)
+#define RBP(scsp)		((scsp->udata.data[1]>>0x0)&0x007F)
 #define MOFULL(scsp)   		((scsp->udata.data[2]>>0x0)&0x1000)
 #define MOEMPTY(scsp)		((scsp->udata.data[2]>>0x0)&0x0800)
 #define MIOVF(scsp)		((scsp->udata.data[2]>>0x0)&0x0400)
@@ -164,6 +164,17 @@ struct _SCSPDSP
 
 //output
 	INT16 EFREG[16];	//EFREG, 16 bit signed
+
+	INT32 ACC;
+	INT32 FRC_REG;
+	INT32 Y_REG;
+	UINT32 ADRS_REG;
+	INT32 INPUTS;
+	INT32 MEMVAL;
+	UINT32 ADDR;
+	UINT16 PENDING_VALUE;
+	UINT8 PENDING_READ;
+	UINT8 PENDING_WRITE;
 
 	int Stopped;
 	int LastStep;

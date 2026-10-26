@@ -221,8 +221,8 @@ struct s_titleMenuWorkArea : public s_workAreaTemplate<s_titleMenuWorkArea>
 
 p_workArea startSegaLogoModule(p_workArea workArea)
 {
-    assert(false);
-    return NULL;
+    PDS_unimplemented("startSegaLogoModule");
+    return createTitleScreenTask(workArea);
 }
 
 p_workArea createTitleMenuTask(p_workArea workArea)
@@ -549,4 +549,3 @@ p_workArea startLoadWarningTask(s_workArea* workArea)
 {
     return createSubTask<s_loadWarningWorkArea>(workArea);
 }
-

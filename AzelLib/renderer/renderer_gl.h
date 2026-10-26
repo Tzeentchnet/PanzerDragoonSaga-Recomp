@@ -14,4 +14,3 @@ public:
     virtual void ImGUI_NewFrame() override;
     virtual void ImGUI_RenderDrawData(ImDrawData* pDrawData) override;
 };
-

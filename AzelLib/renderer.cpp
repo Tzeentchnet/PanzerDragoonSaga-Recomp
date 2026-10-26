@@ -1,4 +1,6 @@
 #include "PDS.h"
+#include "framePacing.h"
+#include "regressionCapture.h"
 #include <soloud.h>
 
 #include <backends/imgui_impl_sdl3.h>
@@ -1659,24 +1661,34 @@ bool azelSdl_EndFrame()
         //renderTexturedQuadBgfx(0, bgfx::getTexture(gBgfxCompositedFB));
     }
     
+    if (regressionCapture_shouldCaptureImage(frameIndex))
+    {
+        char path[512];
+        if (regressionCapture_makeImagePath(frameIndex, "final", path, sizeof(path)))
+        {
+            bgfx::requestScreenShot(BGFX_INVALID_HANDLE, path);
+        }
+        if (
+            bgfx::isValid(gBGFXVdp1PolyFB) &&
+            regressionCapture_makeImagePath(frameIndex, "vdp1", path, sizeof(path))
+        )
+        {
+            bgfx::requestScreenShot(gBGFXVdp1PolyFB, path);
+        }
+        if (
+            bgfx::isValid(NBG_data[4].BGFXFB) &&
+            regressionCapture_makeImagePath(frameIndex, "rbg0", path, sizeof(path))
+        )
+        {
+            bgfx::requestScreenShot(NBG_data[4].BGFXFB, path);
+        }
+    }
+
     bgfx::frame();
 
     {
         ZoneScopedN("WaitNextFrame");
-
-        static Uint64 last_time = SDL_GetPerformanceCounter();
-        Uint64 now = SDL_GetPerformanceCounter();
-
-        float freq = SDL_GetPerformanceFrequency();
-        float secs = (now - last_time) / freq;
-        float timeToWait = ((1.f/frameLimit) - secs) * 1000;
-        //timeToWait = 0;
-        if (timeToWait > 0)
-        {
-            SDL_Delay(timeToWait);
-        }
-
-        last_time = SDL_GetPerformanceCounter();
+        framePacing_waitForNextFrame(frameLimit);
     }
 #endif
 
@@ -1684,4 +1696,3 @@ bool azelSdl_EndFrame()
 
     return !closeApp;
 }
-

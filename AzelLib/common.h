@@ -264,8 +264,8 @@ sVec3_FP MTH_Mul(const fixedPoint& a, const sVec3_FP& b);
 sVec3_FP MTH_Mul(const sVec3_FP& a, const sVec3_FP& b);
 sVec3_FP MTH_Mul(const sVec3_FP& a, const fixedPoint& b);
 
-#define xstr(a) str(a)
-#define str(a) #a
+#define PDS_STRINGIZE_IMPL(a) #a
+#define PDS_STRINGIZE(a) PDS_STRINGIZE_IMPL(a)
 
 #ifndef SHIPPING_BUILD
 void Imgui_FP(const char* label, fixedPoint* pFP);
