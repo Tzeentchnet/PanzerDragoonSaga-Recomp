@@ -1,5 +1,12 @@
 # Azel: Reverse engineering of Panzer Dragoon Saga
 
+> [!NOTE]
+> This repository is a maintained fork of the upstream
+> [yaz0r/Azel](https://github.com/yaz0r/Azel) project. It picks up that work
+> with a focus on updating the project, increasing platform and dependency
+> compatibility, improving accuracy and reliability, and expanding
+> functionality while preserving the original reverse-engineering effort.
+
 # Build
 Only Windows builds are supported right now. Install Visual Studio 2022 (or its
 Build Tools) with the x64 C++ tools and CMake 3.21 or newer.
